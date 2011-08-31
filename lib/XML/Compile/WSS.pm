@@ -85,7 +85,6 @@ sub init($)
 }
 
 #-----------
-
 =section Attributes
 
 =method version
@@ -97,8 +96,44 @@ sub version() {shift->{XCW_version}}
 sub schema()  {shift->{XCW_schema}}
 
 #-----------
+=section Simplifications
 
-=section Handling
+=method wsseBasicAuth USERNAME, PASSWORD
+Many SOAP applications require a username/password authentication, like
+HTTP's basic authentication. See F<examples/usertoken/manually.pl> for
+an example how to construct this by hand for any possible requirement.
+
+This method, however, offers a simplification for the usual case. See
+a working example in F<examples/usertoken/with_help.pl>
+
+=example how to use wsseBasicAuth
+  my $call     = $wsdl->compileClient($operation);
+  my $security = $wss->wsseBasicAuth($username, $password);
+
+  my ($answer, $trace) = $call->
+    ( wsse_Security => $security
+    , %payload
+    );
+=cut
+
+sub wsseBasicAuth($$)
+{   my ($self, $username, $password) = @_;
+
+    my $schema = $self->schema or panic;
+    my $pwtype = $schema->findName('wsse:Password');
+    my $untype = $schema->findName('wsse:UsernameToken');
+
+    my $doc    = XML::LibXML::Document->new('1.0', 'UTF-8');
+    my $pwnode = $schema->writer($pwtype, include_namespaces => 0)
+        ->($doc, $password);
+    my $token  = $schema->writer($untype, include_namespaces => 0)
+        ->($doc, { wsse_Username => $username, $pwtype => $pwnode } );
+
+    +{ $untype => $token };
+}
+
+#-----------
+=section Internals
 
 =method loadSchemas SCHEMA
 SCHEMA must extend M<XML::Compile::Cache>.

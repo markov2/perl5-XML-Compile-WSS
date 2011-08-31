@@ -18,7 +18,9 @@ XML::Compile::SOAP::WSS - Web Service Security used in SOAP
  use XML::Compile::SOAP::WSDL11;  # first
  use XML::Compile::SOAP::WSS;     # hooks into wsdl
 
+ # you really need next line
  my $wss  = XML::Compile::SOAP::WSS->new(version => '1.1');
+
  my $wsdl = XML::Compile::WSDL11->new(...);
  my $call = $wsdl->compileClient('some_operation');
 
