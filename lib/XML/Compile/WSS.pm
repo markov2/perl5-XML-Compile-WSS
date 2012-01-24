@@ -5,16 +5,18 @@ package XML::Compile::WSS;
 
 use Log::Report 'xml-compile-wss';
 
-use XML::Compile::WSS::Util ':wss11';
-use XML::Compile::Util       qw/SCHEMA2001/;
+use XML::Compile::WSS::Util qw/:wss11 UTP11_PDIGEST/;
+use XML::Compile::Util      qw/SCHEMA2001/;
 use XML::Compile::C14N;
 
-use File::Basename           qw/dirname/;
+use File::Basename          qw/dirname/;
+use Digest::SHA1            qw/sha1_base64/;
+use Encode                  qw/encode/;
 
 my @prefixes11 = 
- ( wss  => WSS_11,  wsu    => WSU_10,    wsse  => WSSE_10
- , ds   => DSIG_NS, dsig11 => DSIG11_NS, dsigm => DSIG_MORE_NS
- , xenc => XENC_NS, ghc    => GHC_NS,    dsp   => DSP_NS
+ ( wss   => WSS_11,  wsu    => WSU_10,    wsse  => WSSE_10
+ , ds    => DSIG_NS, dsig11 => DSIG11_NS, dsigm => DSIG_MORE_NS
+ , xenc  => XENC_NS, ghc    => GHC_NS,    dsp   => DSP_NS
  );
 
 my %versions =
@@ -98,13 +100,17 @@ sub schema()  {shift->{XCW_schema}}
 #-----------
 =section Simplifications
 
-=method wsseBasicAuth USERNAME, PASSWORD
+=method wsseBasicAuth USERNAME, PASSWORD, [PWTYPE]
 Many SOAP applications require a username/password authentication, like
 HTTP's basic authentication. See F<examples/usertoken/manually.pl> for
 an example how to construct this by hand for any possible requirement.
-
 This method, however, offers a simplification for the usual case. See
 a working example in F<examples/usertoken/with_help.pl>
+
+The optional PWTYPE parameter contains either the UTP11_PTEXT or
+UTP11_PDIGEST constant. The PTEXT is the plain-text version of the
+password. When PDIGEST is used, the password will get encrypted for
+you.
 
 =example how to use wsseBasicAuth
   my $call     = $wsdl->compileClient($operation);
@@ -114,20 +120,26 @@ a working example in F<examples/usertoken/with_help.pl>
     ( wsse_Security => $security
     , %payload
     );
+
+  use XML::Compiles::WSS::Util ':utp11';
+  my $sec = $wss->wsseBasicAuth($user, $password, UTP11_PTEXT);
+  my $sec = $wss->wsseBasicAuth($user, $password, UTP11_PDIGEST);
 =cut
 
-sub wsseBasicAuth($$)
-{   my ($self, $username, $password) = @_;
-
+sub wsseBasicAuth($$;$)
+{   my ($self, $username, $password, $type) = @_;
     my $schema = $self->schema or panic;
     my $pwtype = $schema->findName('wsse:Password');
     my $untype = $schema->findName('wsse:UsernameToken');
 
+    $password  = sha1_base64 encode($password, 'utf8')
+        if $type && $type eq UTP11_PDIGEST;
+
     my $doc    = XML::LibXML::Document->new('1.0', 'UTF-8');
     my $pwnode = $schema->writer($pwtype, include_namespaces => 0)
-        ->($doc, $password);
+        ->($doc, {_ => $password, Type => $type} );
     my $token  = $schema->writer($untype, include_namespaces => 0)
-        ->($doc, { wsse_Username => $username, $pwtype => $pwnode } );
+        ->($doc, {wsse_Username => $username, $pwtype => $pwnode} );
 
     +{ $untype => $token };
 }
