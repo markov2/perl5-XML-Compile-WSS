@@ -132,7 +132,7 @@ sub wsseBasicAuth($$;$)
     my $pwtype = $schema->findName('wsse:Password');
     my $untype = $schema->findName('wsse:UsernameToken');
 
-    $password  = sha1_base64 encode($password, 'utf8')
+    $password  = sha1_base64 encode(utf8 => $password)
         if $type && $type eq UTP11_PDIGEST;
 
     my $doc    = XML::LibXML::Document->new('1.0', 'UTF-8');
