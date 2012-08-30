@@ -25,7 +25,8 @@ XML::Compile::SOAP::WSS - Web Service Security used in SOAP
  my $call = $wsdl->compileClient('some_operation');
 
  # security header fields start with wss_ or wsu_
- my ($data, $trace) = $call->(wsse_Security => {...}, %data);
+ my $token = $wss->wsseBasicAuth($user, $password);
+ my ($data, $trace) = $call->(wsse_Security => $token, %data);
 
 =chapter DESCRIPTION
 The Web Service Security protocol is implemented by the super
