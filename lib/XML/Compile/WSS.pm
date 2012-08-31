@@ -250,25 +250,28 @@ sub wsseBasicAuth($$;$%)
 
     # The spec says we include "created" and "nonce" nodes if they're present.
     my @additional;
+    my $nonce = $opts{nonce} || '';
+    if($nonce)
+    {   my $noncetype = $schema->findName('wsse:Nonce') ;
+        my $noncenode = $schema->writer($noncetype, include_namespaces => 0)
+            ->($doc, {_ => encode_base64($nonce)});
+        push @additional, $noncetype => $noncenode;
+    }
+
+    my $created = $opts{created} || '';
+    if($created)
+    {   my $createdtype = $schema->findName('wsu:Created' ) ;
+        # If _datetime changes $created into something different,
+        # _that_ is what's going to need to be put into the
+        # digest (if there's a digest).
+        $created = _datetime($created) ;
+        my $cnode = $schema->writer($createdtype, include_namespaces => 1)
+            ->($doc, {_ => $created } );
+        push @additional, $createdtype => $cnode;
+    }
+
     if($type eq UTP11_PDIGEST)
-    {  
-        my $nonce = $opts{nonce} || '';
-        if($nonce)
-        {   my $noncetype = $schema->findName('wsse:Nonce') ;
-            my $noncenode = $schema->writer($noncetype, include_namespaces => 0)
-               ->($doc, {_ => encode_base64($nonce)});
-            push @additional, $noncetype => $noncenode;
-        }
-
-        my $created = $opts{created} || '';
-        if($created)
-        {    my $createdtype = $schema->findName('wsu:Created' ) ;
-             my $cnode = $schema->writer($createdtype, include_namespaces => 0)
-               ->($doc, {_ => _datetime($created) } );
-             push @additional, $createdtype => $cnode;
-        }
-
-        $password = sha1_base64(encode utf8 => "$nonce$created$password").'=';
+    {   $password = sha1_base64(encode utf8 => "$nonce$created$password").'=';
     }
 
     my $pwtype = $schema->findName('wsse:Password');
