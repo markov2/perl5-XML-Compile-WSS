@@ -4,7 +4,7 @@ use 5.008;
 
 WriteMakefile
  ( NAME	 	=> 'XML::Compile::WSS'
- , VERSION	=> '0.911'
+ , VERSION	=> '0.912'
 
  , PREREQ_PM    =>
      { XML::Compile         => '1.28'
