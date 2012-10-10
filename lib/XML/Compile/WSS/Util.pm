@@ -6,12 +6,8 @@ use base 'Exporter';
 
 my @wss11 = qw/
 WSS_11	WSS11MODULE	DSIG11_NS  DSP_NS
-WSU_10	DSIG_NS		XENC_NS
+WSU_10	DSIG_NS		XENC_NS    WSM_10
 WSSE_10	DSIG_MORE_NS	GHC_NS
- /;
-
-my @wsse  = qw/
-WSSE_NS  WSSE_BASE64  WSSE_X509v3  WSSE_X509PKI  WSSE_X509PKC
  /;
 
 my @dsig  = qw/
@@ -42,6 +38,10 @@ my @dsig11 = qw/
 DSIG11_NS		DSIG11_EC_KV		DSIG11_DER_KV
  /;
 
+my @xtp10 = qw/XTP10_X509 XTP10_X509v3 XTP10_X509PKI XTP10_X509PKC/;
+
+my @wsm10 = qw/WSM10_BASE64/;
+
 my @xenc  = qw/
 XENC_NS		XENC_PROPS	XENC_AES128	XENC_DH		XENC_KW_AES256
 XENC_MIME_TYPE	XENC_SHA256	XENC_AES192	XENC_DH_KV	XENC_DSIG
@@ -64,11 +64,11 @@ UTP11_PTEXT     UTP11_PDIGEST   UTP11_USERNAME
 
 our @EXPORT    = 'WSS11MODULE';
 our @EXPORT_OK
-  = ( @wss11, @wsse, @dsig, @dsig_more, @dsig11, @xenc, @ghc, @dsp, @utp11);
+  = ( @wss11, @dsig, @dsig_more, @dsig11, @xenc, @ghc, @dsp, @utp11
+    , @wsm10, @xtp10);
 
 our %EXPORT_TAGS =
   ( wss11  => \@wss11
-  , wsse   => \@wsse
   , dsig   => \@dsig
   , dsig11 => \@dsig11
   , dsigm  => \@dsig_more
@@ -76,6 +76,8 @@ our %EXPORT_TAGS =
   , ghc    => \@ghc
   , dsp    => \@dsp
   , utp11  => \@utp11
+  , xtp10  => \@xtp10
+  , wsm10  => \@wsm10
   );
 
 =chapter NAME
@@ -117,6 +119,7 @@ Export TAG C<:wss11> exports constants
 
   WSS_11   WSSE_10      DSIG_NS      DSIG11_NS    GHC_NS
   WSU_10   WSS11MODULE  DSIG_MORE_NS XENC_NS      DSP_NS
+  WSM_10   XTP_10
 
 =cut
 
@@ -125,26 +128,43 @@ use constant
   { WSS_11  => WSS_BASE.'/oasis-wss-wssecurity-secext-1.1.xsd'
   , WSU_10  => WSS_WG200401.'-wssecurity-utility-1.0.xsd' 
   , WSSE_10 => WSS_WG200401.'-wssecurity-secext-1.0.xsd'
-  , UTP_11  => WSS_WG200401.'-username-token-profile-1.0'
+  , UTP_10  => WSS_WG200401.'-username-token-profile-1.0'
+  , XTP_10  => WSS_WG200401.'-x509-token-profile-1.0'
+  , WSM_10  => WSS_WG200401.'-soap-message-security-1.0'
   };
 
-use constant WSS11MODULE => WSS_11;
+use constant
+  { WSS11MODULE => WSS_11
+  };
 
 =pod
 
-Export tag C<:wsse> defines convenient constants in the wsse namespace.
+Export tag C<:xtp10> defines convenient constants in the x509 namespace. See
 F<http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0.pdf>
 
-  WSSE_NS  WSSE_BASE64  WSSE_X509v3  WSSE_X509PKI  WSSE_X509PKC
+  XTP10_X509   XTP10_X509v3   XTP10_X509PKI   XTP10_X509PKC
 
 =cut
 
 use constant
-  { WSSE_NS      => WSSE_10
-  , WSSE_BASE64  => WSSE_10.'#Base64Binary'
-  , WSSE_X509v3  => WSSE_10.'#X509v3'
-  , WSSE_X509PKI => WSSE_10.'#X509PKIPathv1'
-  , WSSE_X509PKC => WSSE_10.'#X509PKCS7'
+  { XTP10_X509    => XTP_10.'#X509'
+  , XTP10_X509v3  => XTP_10.'#X509v3'
+  , XTP10_X509PKI => XTP_10.'#X509PKIPathv1'
+  , XTP10_X509PKC => XTP_10.'#X509PKCS7'
+  };
+
+=pod
+
+Export tag C<:wsm10> defines convenient constants in the soap-messages
+namespace.  See
+F<http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0.pdf >
+
+  WSM10_BASE64
+
+=cut
+
+use constant
+  { WSM10_BASE64 => WSM_10.'#Base64Binary'
   };
 
 =pod
@@ -156,10 +176,10 @@ See F<http://docs.oasis-open.org/wss/v1.1/wss-v1.1-spec-os-UsernameTokenProfile.
 
 =cut
 
-use constant
-  { UTP11_PTEXT    => UTP_11.'#PasswordText'
-  , UTP11_PDIGEST  => UTP_11.'#PasswordDigest'
-  , UTP11_USERNAME => UTP_11.'#UsernameToken'
+use constant   # Yes, I know... it is correct, v1.1 uses the 1.0 namespace
+  { UTP11_PTEXT    => UTP_10.'#PasswordText'
+  , UTP11_PDIGEST  => UTP_10.'#PasswordDigest'
+  , UTP11_USERNAME => UTP_10.'#UsernameToken'
   };
 
 =pod
