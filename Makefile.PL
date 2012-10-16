@@ -4,13 +4,13 @@ use 5.008;
 
 WriteMakefile
  ( NAME	 	=> 'XML::Compile::WSS'
- , VERSION	=> '0.912'
+ , VERSION	=> '1.00'
 
  , PREREQ_PM    =>
-     { XML::Compile         => '1.28'
+     { XML::Compile         => '1.29'
      , XML::Compile::Cache  => '0.992'
      , XML::Compile::C14N   => '0.10'
-     , XML::Compile::SOAP   => '2.30'
+     , XML::Compile::SOAP   => '2.32'
      , Log::Report          => '0.92'
 
      , Digest::SHA1         => 0

@@ -261,6 +261,7 @@ F<http://www.ietf.org/rfc/rfc4051.txt>
 
 =cut
 
+# Some weird gaps, for instance: why are sha256 and sha512 missing?
 use constant
   { DSIG_MORE_NS => DSIGM.'#'
 
