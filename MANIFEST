@@ -1,18 +1,6 @@
 ChangeLog
 MANIFEST
 Makefile.PL
-examples/dsp/sp-example.xml
-examples/enc/README
-examples/enc/enc-example.xml
-examples/enc/read_example.pl
-examples/usertoken/manually.pl
-examples/usertoken/with_help.pl
-examples/usertoken/with_help_digest.pl
-examples/wsse/README
-examples/wsse/example.wsdl
-examples/wsse/read_example.pl
-examples/wsse/write_example.pl
-examples/wsse/wsse-example.xml
 lib/XML/Compile/SOAP/WSS.pm
 lib/XML/Compile/WSS.pm
 lib/XML/Compile/WSS/BasicAuth.pm
@@ -34,4 +22,5 @@ t/12numeric_created.t
 t/90old-basic.t
 t/91old-digest.t
 t/92old-num.t
+t/example.wsdl
 xt/99pod.t

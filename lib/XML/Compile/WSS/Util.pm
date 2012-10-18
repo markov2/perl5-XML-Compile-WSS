@@ -83,7 +83,8 @@ our %EXPORT_TAGS =
 =chapter NAME
 XML::Compile::WSS::Util - constants for XML::Compile::WSS
 
-=chapter SYNOPSYS
+=chapter SYNOPSIS
+
  use XML::Compile::WSS::Util qw/:wss11/;
 
 =chapter DESCRIPTION
@@ -94,9 +95,7 @@ These constants may also be used by other applications: they are
 not limited to the M<XML::Compile::WSS> module. Please inform me
 when you use this list in combination with other applications.
 
-=chapter FUNCTIONS
-
-=section Constants
+=chapter CONSTANTS
 =cut
 
 # Path components, not exported
@@ -113,9 +112,7 @@ use constant
   , DSP      => 'http://www.w3.org/2009/xmldsig-properties'
   };
 
-=pod
-
-Export TAG C<:wss11> exports constants
+=section Export TAG :wss11
 
   WSS_11   WSSE_10      DSIG_NS      DSIG11_NS    GHC_NS
   WSU_10   WSS11MODULE  DSIG_MORE_NS XENC_NS      DSP_NS
@@ -137,9 +134,8 @@ use constant
   { WSS11MODULE => WSS_11
   };
 
-=pod
-
-Export tag C<:xtp10> defines convenient constants in the x509 namespace. See
+=section Export tag :xtp10
+Defines convenient constants in the x509 namespace. See
 F<http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.0.pdf>
 
   XTP10_X509   XTP10_X509v3   XTP10_X509PKI   XTP10_X509PKC
@@ -153,10 +149,8 @@ use constant
   , XTP10_X509PKC => XTP_10.'#X509PKCS7'
   };
 
-=pod
-
-Export tag C<:wsm10> defines convenient constants in the soap-messages
-namespace.  See
+=section Export tag :wsm10
+Defines convenient constants in the soap-messages namespace.  See
 F<http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0.pdf >
 
   WSM10_BASE64
@@ -167,9 +161,8 @@ use constant
   { WSM10_BASE64 => WSM_10.'#Base64Binary'
   };
 
-=pod
-
-Export tag C<:utp11> defines constants for the username-token-profile.
+=section Export tag C<:utp11>
+Defines constants for the username-token-profile.
 See F<http://docs.oasis-open.org/wss/v1.1/wss-v1.1-spec-os-UsernameTokenProfile.pdf>
 
   UTP11_PTEXT   UTP11_PDIGEST   UTP11_USERNAME
@@ -182,10 +175,8 @@ use constant   # Yes, I know... it is correct, v1.1 uses the 1.0 namespace
   , UTP11_USERNAME => UTP_10.'#UsernameToken'
   };
 
-=pod
-
-Export tag C<:dsig> defines convenient constants
-for signature reference URIs, mainly specified in
+=section Export tag :dsig
+Defines convenient constants for signature reference URIs, mainly specified in
 F<http://www.w3.org/TR/2008/REC-xmldsig-core-20080610/>
 
   DSIG_NS           DSIG_MGMT_DATA      DSIG_XML11_NO_COMM
@@ -233,16 +224,13 @@ use constant
   , DSIG_ENV_SIG   => DSIG.'#enveloped-signature'
   };
 
-=pod
+=section Export tag :dsigm (dsigm-more)
+Defines constants defined by RFC4050 and RFC4051.
 
-Export tag C<:dsigm> (dsigm-more) defines constants defined by
-RFC4050 and RFC4051.
-
-RFC4050 Using the ECDSA for XML Digital Signatures
-F<http://www.ietf.org/rfc/rfc4050.txt>
-
-RFC4051 Additional XML Security Uniform Resource Identifiers (URIs)
-F<http://www.ietf.org/rfc/rfc4051.txt>
+=over 4
+=item * RFC4050 Using the ECDSA for XML Digital Signatures F<http://www.ietf.org/rfc/rfc4050.txt>
+=item * RFC4051 Additional XML Security Uniform Resource Identifiers (URIs) F<http://www.ietf.org/rfc/rfc4051.txt>
+=back
 
   DSIGM_MD5             DSIGM_ECDSA_SHA224    DSIGM_CAM192
   DSIGM_SHA224          DSIGM_ECDSA_SHA256    DSIGM_CAM256
@@ -319,10 +307,8 @@ use constant
   , DSIGM_RAW_PKCS7_DATA => DSIGM.'#rawPKCS7signedData'
  };
 
-=pod
-
-Export tag C<:dsig11> defines convenient constants for the extensions
-on dsig, defined in
+=section Export tag :dsig11
+Defines convenient constants for the extensions on dsig, defined in
 F<http://www.w3.org/TR/2011/CR-xmldsig-core1-20110303/>
 
   DSIG11_NS       DSIG11_EC_KV    DSIG11_DER_KV   DSIG_X509_CERT
@@ -337,11 +323,9 @@ use constant
  , DSIG_X509_CERT => DSIG.'#rawX509Certificate'
  };
 
-=pod
-
-Export tag C<:xenc> defines convenient constants for encryption
-referencing URIs., mainly specified in
-F<http://www.w3.org/TR/2002/REC-xmlenc-core-20021210/>
+=section Export tag :xenc
+Defines convenient constants for encryption referencing URIs, mainly
+specified in F<http://www.w3.org/TR/2002/REC-xmlenc-core-20021210/>
 
   XENC_NS         XENC_PROPS      XENC_AES128     XENC_DH
   XENC_MIME_TYPE  XENC_SHA256     XENC_AES192     XENC_DH_KV
@@ -390,10 +374,9 @@ use constant
   , XENC_DSIG      => DSIG_NS
   };
 
-=pod
-
-Export tag C<:xghc> defines convenient constants for generic
-hybrid algorithm referencing URIs, as specified in
+=section Export tag :xghc
+Defines convenient constants for generic hybrid
+algorithm referencing URIs, as specified in
 F<http://www.w3.org/TR/2011/CR-xmlsec-generic-hybrid-20110303/>
 
   GHC_NS      GHC_GENERIC     GHC_RSAES_KEM     GHC_ECIES_KEM
@@ -411,10 +394,8 @@ use constant
   , GHC_ECIES_KEM  => GHC.'#ecies-kem'
   };
 
-=pod
-
-Export tag C<:dsp> defines constants for "Digital signature properties"
-as specified in
+=section Export tag :dsp
+Defines constants for "Digital signature properties" as specified in
 F<http://www.w3.org/TR/2011/CR-xmldsig-properties-20110303/>
 
   DSP_NS

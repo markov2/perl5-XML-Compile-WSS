@@ -18,6 +18,9 @@ XML::Compile::WSS::BasicAuth - username/password security
 
 =chapter SYNOPSIS
 
+ # you may need a few of these
+ use XML::Compile::WSS::Util  qw/:utp11/;
+
  # used in combination with anything
  my $auth = XML::Compile::WSS::BasicAuth->new
    ( schema   => $anything
@@ -34,7 +37,11 @@ XML::Compile::WSS::BasicAuth - username/password security
 
 =chapter DESCRIPTION
 The generic Web Service Security protocol is implemented by the super
-class M<XML::Compile::WSS>.  This extension implements basic authentication.
+class M<XML::Compile::WSS>.  This extension implements "basic authentication",
+i.e. username/password validation.
+
+You can best use digested passwords (UTP11_PDIGEST)  In that case,
+a timestamp, a nonce and SHA1 hashing will keep the password a secret.
 
 =chapter METHODS
 
@@ -60,18 +67,11 @@ See M<XML::Compile::WSS::dateTime()> for choices of DATETIME.
 
 =option  nonce STRING|CODE|'RANDOM'
 =default nonce 'RANDOM'
+Only used then the password is passed as digest.  This will cause the
+C<wsse:Nonce> element.
 
-Only used then the password is passed as digest.  This will cause an
-extra child to be added to the C<UsernameToken>, namely
-
-  <wsse:Nonce>$enc</wsse:Nonce>
-
-where C<$enc> is the base64-encoding of the STRING.  The STRING will
-be prepended to the password (and to any "created" information) before
-the digest is computed to make each digest unique.
-
-When you pass a CODE, it will get called for each message to produce
-a STRING. The constant text 'RANDOM' will have a random nonce generator
+When you pass a CODE, it will get called for each message to produce a
+STRING. The constant text 'RANDOM' will have a random nonce generator
 being called at each message.
 
 =option  wsu_Id STRING
@@ -194,7 +194,7 @@ sub prepareWriting($)
     };
 }
 
-sub process($$)
+sub create($$)
 {   my ($self, $doc, $data) = @_;
     $self->{XCWB_login}->($doc, $data);
 }

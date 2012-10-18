@@ -42,17 +42,36 @@ XML::Compile::WSS::Signature - WSS in CICS-TS style
 
 =chapter SYNOPSIS
 
- my $wss  = XML::Compile::WSS::Signature->new
-    ( ... some required params, see below
-    );
-
 B<WARNING: under development!>
+
+ # You may need a few of these
+ use XML::Compile::WSS::Util  qw/:dsig/;
+ use XML::Compile::C14N::Util qw/:c14n/;
+
+ # This modules van be used "stand-alone" ...
+ my $schema = XML::Compile::Cache->new(...);
+ my $sig    = XML::Compile::WSS::Signature->new
+   (sign_method => DSGIG_RSA_SHA1, ...);
+
+ # ... or as SOAP slave (strict order of object creation!)
+ my $wss    = XML::Compile::SOAP::WSS->new;
+ my $wsdl   = XML::Compile::WSDL11->new($wsdlfn);
+ my $sig    = $wss->signature(sign_method => ...);
 
 =chapter DESCRIPTION
 The generic Web Service Security protocol is implemented by the super
-class M<XML::Compile::WSS>.  This extension implements Signatures.
+class M<XML::Compile::WSS>.  This extension implements cypto signatures.
 
-Limitations:
+One or more elements of the document can be selected to be signed (with
+M<signElement()>)  They are canonalized (serialized in a well-described
+way) and then digested (usually via SHA1).  The digest is put in a
+C<SignedInfo> component of the C<Signature> feature in the C<Security>
+header.  When all digests are in place, the whole SignedInfo structure
+
+=section Limitations
+Many companies have their own use of the pile of standards for this
+feature.  Some of the resulting limitations are known by the author:
+
 =over 4
 =item * digests
 Only digest algorithms which are provided via the M<Digest> module are
@@ -85,9 +104,12 @@ M<XML::Compile::C14N::Util>.
 
 =option  prefix_list ARRAY
 =default prefix_list [ds wsu xenc SOAP-ENV]
+Used for canonicalization.
 
 =option  sign_method SIGN
 =default sign_method DSIG_RSA_SHA1
+The choices here are explained below, in the L</DETAILS> section of
+this manual page.
 
 =option  private_key OBJECT|STRING|FILENAME
 =default private_key C<undef>
@@ -134,12 +156,15 @@ sub init($)
     $self->{XCWS_canonmeth}  = $args->{canon_method}   || C14N_EXC_NO_COMM;
     $self->{XCWS_prefixlist} = $args->{prefix_list}
                             || [ qw/ds wsu xenc SOAP-ENV/ ];
+    $self->{XCWS_to_check}   = {};
     $self;
 }
 
 #-----------------------------
 
-=section Digests
+=section Helpers
+
+=subsection Digest
 
 =method defaultDigestMethod
 Returns the default DIGEST constant, as set with M<new(digest_method)>.
@@ -168,21 +193,9 @@ sub digest($$)
     $digest;
 }
 
-sub checkDigest($%)
-{   my ($self, $node, %args) = @_;
-    my $id = $node->getAttributeNS(WSU_10, 'Id') or panic $node;
-
-#   my $sig  = $signatures{$uri} or panic $uri;
-#   my $ref  = $references{$uri} or panic $uri;
-#   $self->_digest_elem_check($node, $ref)
-# probably fails due to serialization problem of the body
-#        or warning __x"received body digest does not match";
-#    $node;
-}
-
 #-----------------------------
 
-=section Canonicalization
+=subsection Canonicalization
 
 =method defaultCanonMethod
 Returns the default Canonicalization method as constant.
@@ -198,6 +211,23 @@ Returns an ARRAY with the prefixes to be used in canonicalization.
 sub defaultCanonMethod() {shift->{XCWS_canonmeth}}
 sub canon($) {my $r = $canon{$_[1] || shift->defaultCanonMethod}; $r ? @$r : ()}
 sub prefixList() {shift->{XCWS_prefixlist} || []}
+
+# XML::Compile has to trick with prefixes, because XML::LibXML does not
+# permit the creation of nodes with explicit prefix, only by namespace.
+# The next can be slow and is ugly, Sorry.  MO
+sub _repair_xml($$)
+{   my ($self, $xc_out_dom) = @_;
+
+    # only doc element does charsets correctly
+    my $doc       = $xc_out_dom->ownerDocument;
+    $doc->setDocumentElement($xc_out_dom);
+
+    # reparse tree
+    my $fixed_dom = XML::LibXML->load_xml(string => $xc_out_dom->toString(0));
+    my $new_out   = $fixed_dom->documentElement;
+    $doc->importNode($new_out);
+    $new_out;
+}
 
 sub _apply_canon(;$$)
 {   my ($self, $algo, $prefixlist) = @_;
@@ -215,13 +245,9 @@ sub _apply_canon(;$$)
 
     sub {
         my ($node) = @_;
-        # XML::Compile has to trick with prefixes, because XML::LibXML does not
-        # permit the creation of nodes with explicit prefix, only by namespace.
-        # The next can be slow and is ugly, Sorry.  MO
-        my $reparse = XML::LibXML->load_xml(string => $node->toString(0));
-#       my $context = XML::LibXML::XPathContext->new($reparse->documentElement);
-#       $reparse->$serialize($with_comments, $path, $context, $prefixlist)
-        $reparse->$serialize($with_comments, undef, $prefixlist);
+        my $repaired = $self->_repair_xml($node);
+        my $context = XML::LibXML::XPathContext->new($repaired);
+        $repaired->$serialize($with_comments, undef, $context, $prefixlist);
     };
 }
 
@@ -237,7 +263,7 @@ sub _apply_canon_siginfo($$)
 
 #-----------------------------
 
-=section KeyInfo
+=subsection KeyInfo
 =cut
 
 sub _create_keyinfo()
@@ -256,7 +282,7 @@ sub _create_keyinfo()
     $schema->prefixFor(WSU_10);
 
     my $krt = $schema->findName('wsse:Reference');
-    my $krw = $schema->writer($krt);
+    my $krw = $schema->writer($krt, include_namespaces => 0);
 
     my $kit = $schema->findName('wsse:SecurityTokenReference');
     my $kiw = $schema->writer($kit, include_namespaces => 0);
@@ -284,9 +310,7 @@ sub _create_keyinfo()
 }
 
 #-----------------------------
-
-
-=section Signing
+=subsection Signing
 
 =method signMethod
 =cut
@@ -307,9 +331,14 @@ sub _create_signer($$)
 }
 
 =method signElement NODE, OPTIONS
+Add an element to be the list of NODEs to be signed.  For instance,
+the SOAP message will register the C<SOAP-ENV:Body> here.
 
-=option  id LABEL
+=option  id UNIQUEID
 =default id C<unique>
+Each element to be signed needs a C<wsu:Id> to refer to.  If the NODE
+does not have one, the specified UNIQUEID is taken.  If there is none
+specified, one is generated.
 =cut
 
 sub signElement(%)
@@ -321,13 +350,47 @@ sub signElement(%)
         $node->setAttributeNS(WSU_10, 'Id', $wsuid);
     }
     push @{$self->{XCWS_to_sign}}, +{node => $node,  id => $wsuid};
-    $wsuid;
+    $node;
 }
 
 =method elementsToSign
+Returns an ARRAY of all NODES which need to be signed.  This will
+also reset the administration.
 =cut
 
 sub elementsToSign() { delete shift->{XCWS_to_sign} || [] }
+
+=method checkElement ELEMENT
+Register the ELEMENT to be checked for correct signature.
+=cut
+
+sub checkElement($%)
+{   my ($self, $node, %args) = @_;
+    my $id = $node->getAttributeNS(WSU_10, 'Id')
+        or error "element to check {name} has no wsu:Id"
+             , name => $node->nodeName;
+
+warn "CHECK $id";
+    $self->{XCWS_to_check}{$id} = $node;
+}
+#   my $sig  = $signatures{$uri} or panic $uri;
+#   my $ref  = $references{$uri} or panic $uri;
+#   $self->_digest_elem_check($node, $ref)
+# probably fails due to serialization problem of the body
+#        or warning __x"received body digest does not match";
+#    $node;
+
+=method elementsToCheck
+Returns a HASH with (wsu-id, node) pairs to be checked.  The administration
+is reset with this action.
+=cut
+
+sub elementsToCheck()
+{   my $self = shift;
+    my $to_check = delete $self->{XCWS_to_check};
+    $self->{XCWS_to_check} =  {};
+    $to_check;
+}
 
 #-----------------------------
 #### HELPERS
@@ -352,29 +415,6 @@ sub prepareReading($)
     $self->SUPER::prepareReading($schema);
 
     my %security_tokens;   # the BinarySecurityToken keys, binary form
-    my %references;        # content of signature refs, by URI
-    my %signatures;        # signature data, expanded per reference URI
-    my @hooks;
-
-    my $scan_security_info
-      = { type    => 'wsse:SecurityHeaderType'
-        , after   => sub {
-        my ($node, $data, $path) = @_;
-use Data::Dumper;
-#print "HOOK: ", Dumper $data;
-        if(my $sig = $data->{ds_Signature})
-        {   # This will need to be extended, when we start to understand
-            # more security protocols
-            foreach my $ref (@{$sig->{ds_SignedInfo}{ds_Reference}})
-            {   my $uri = $ref->{URI};
-                $references{$uri} = $ref;
-                $signatures{$uri} = $sig;
-            }
-        }
-
-#print "FOUND = ", Dumper \%references, \%signatures;
-        $data;
-       }};
 
     my $take_security_token
       = { type    => 'wsse:BinarySecurityTokenType'
@@ -392,13 +432,46 @@ use Data::Dumper;
         $data;
        }};
 
-    $schema->declare(READER => 'wsse:Security'
-      , hooks => $scan_security_info);
-
     $schema->declare(READER => 'wsse:BinarySecurityToken'
       , hooks => $take_security_token);
 
+    $self->{XCWS_reader} = sub {
+        my $data = shift;
+        my $sec  = $data->{wsse_Security}
+            or error __x"no security block found";
+
+        my $sig  = $sec->{ds_Signature}
+            or error __x"no signature block found";
+
+use Data::Dumper;
+#print "HOOK: ", Dumper $data;
+#XXX MO: check signed info first
+        my $info = $sig->{ds_SignedInfo} || {};
+
+        my %references;
+        foreach my $ref (@{$info->{ds_Reference}})
+        {   my $uri = $ref->{URI};
+            $references{$uri} = $ref;
+        }
+
+        my $check = $self->elementsToCheck;
+print "FOUND: ", Dumper \%references, $info, $check;
+        foreach my $id (sort keys %$check)
+        {   my $node = $check->{$id};
+            my $ref  = delete $references{"#$id"}
+                or error __x"cannot find digest info for {elem}", elem => $id;
+            $self->_digest_elem_check($node, $ref)
+                or warning __x"digest info of {elem} is wrong", elem => $id;
+warn "OK $id";
+        }
+    };
+
     $self;
+}
+
+sub process_received($)
+{   my ($self, $data) = @_;
+    $self->{XCWS_reader}->($data);
 }
 
 ### BE WARNED: created nodes can only be used once!!! in XML::LibXML
@@ -409,7 +482,7 @@ sub _create_inclns($)
 
     my $schema = $self->schema;
     my $type   = $schema->findName('c14n:InclusiveNamespaces');
-    my $incns  = $schema->writer($type);
+    my $incns  = $schema->writer($type, include_namespaces => 0);
 
     ( $type, sub {$incns->($_[0], {PrefixList => $prefixes})} );
 }
@@ -476,7 +549,7 @@ sub prepareWriting($)
         my ($doc, $sec) = @_;
         my $info      = $fill_signed_info->($doc, $self->elementsToSign);
         my $keyinfo   = $settings->($doc, $sec);
-        my $info_node = $infow->($doc, $info);
+        my $info_node = $self->_repair_xml($infow->($doc, $info));
         my $signature = $sign->(\$canonical->($info_node));
 
         # The signature value is only known when the Info is ready,
@@ -493,13 +566,12 @@ sub prepareWriting($)
     $self;
 }
 
-sub process($$)
+sub create($$)
 {   my ($self, $doc, $data) = @_;
     $self->{XCWS_sign}->($doc, $data);
 }
 
 #---------------------------
-
 =chapter DETAILS
 
 =section Signing, the generic part

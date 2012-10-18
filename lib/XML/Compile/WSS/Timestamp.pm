@@ -39,14 +39,16 @@ record.
 
 =default wss_version  '1.1'
 
-=option  created  DATE|TIME|''
+=option  created  DATETIME
 =default created  C<now>
 By default, for each constructed message the current time is taken.
-See M<XML::Compile::WSS::dateTime()> for options on DATETIME.
+See M<XML::Compile::WSS::dateTime()> for options on DATETIME.  If you
+specify an empty string, then the C<Created> node will be skipped.
 
 =option  expires  DATETIME
 =default expires  C<undef>
-See M<XML::Compile::WSS::dateTime()> for options on DATETIME.
+See M<XML::Compile::WSS::dateTime()> for options on DATETIME.  When
+not defined, the C<Expires> node will be skipped.
 
 =option  lifetime SECONDS
 =default lifetime C<undef>
@@ -111,7 +113,7 @@ sub _hook_WSU_ID
     my $node = $r->($doc, $values);
     if($id)
     {   $node->setNamespace(WSU_10, 'wsu', 0);
-        $node->setAttributeNS(WSU_10, 'Id' => $id);
+        $node->setAttributeNS(WSU_10, Id => $id);
     }
     $node;
 }
@@ -138,7 +140,7 @@ sub prepareWriting($)
     };
 }
 
-sub process($$)
+sub create($$)
 {   my ($self, $doc, $data) = @_;
     $self->{XCWT_stamp}->($doc, $data);
 }

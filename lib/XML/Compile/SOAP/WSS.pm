@@ -43,7 +43,7 @@ M<XML::Compile::WSS>. This module integrates WSS in SOAP usage.
 This module is an M<XML::Compile::SOAP::Extension>, a plugin for the
 SOAP code.  Some of these protocols implemented with these plugins
 behave badly: interfere with the WSDL specification.  Therefore, these
-B<WSDL plugins> have to be B<instantiated before> the WSDL files get read.
+B<WSDL plugins> have to be B<instantiated before the WSDL> files get read.
 The use of the information can only take place when all schema's are read,
 so these B<security features> can only be B<created after> that.
 
@@ -52,8 +52,8 @@ so these B<security features> can only be B<created after> that.
 =section Constructors
 
 =c_method new OPTIONS
-Usually, you do not call M<new()> but one of the specific instantiators.
-Depends of which kind of WSS service you need.
+Usually, you do not call M<new()> but one of the specific constructors.
+Depends on the WSS feature you need.
 =cut
 
 sub init($)
@@ -70,9 +70,10 @@ sub init($)
 sub wsdl11Init($$)
 {   my ($self, $wsdl, $args) = @_;
     $self->SUPER::wsdl11Init($wsdl, $args);
+
     $self->{XCSW_schema} = $wsdl;
-    # [1.0] wsse needed for backward compat functions
-    $wsdl->prefixes('SOAP-ENV' => SOAP11ENV, wsse => WSSE_10);
+    XML::Compile::WSS->loadSchemas($wsdl, '1.1');
+
     $self;
 }
 
@@ -123,6 +124,7 @@ sub _start($$)
 }
 
 =method basicAuth OPTIONS
+Implements username/password authentication.
 See documentation in M<XML::Compile::WSS::BasicAuth>.  The OPTIONS are
 passed to its new() method.
 =cut
@@ -133,6 +135,7 @@ sub basicAuth(%)
 }
 
 =method timestamp OPTIONS
+Adds a timestamp record to the Security header.
 See documentation in M<XML::Compile::WSS::Timestamp>.  The OPTIONS are
 passed to its new() method.
 =cut
@@ -143,6 +146,7 @@ sub timestamp(%)
 }
 
 =method signature OPTIONS
+Put a crypto signature on one or more elements.
 See documentation in M<XML::Compile::WSS::Signature>.  The OPTIONS are
 passed to its new() method.
 =cut
@@ -157,8 +161,7 @@ sub signature(%)
       , after    => sub {
           my ($doc, $xml) = @_;
           $xml->setNamespace(SOAP11ENV, 'SOAP-ENV', 0);
-          $sig->signElement($xml, id => 'TheBody');
-          $xml;
+          $sig->signElement($xml, id => 'TheBody');  # returns a fixed elem
      }};
     $schema->declare(WRITER => 'SOAP-ENV:Envelope', hooks => $sign_body);
 
@@ -169,8 +172,7 @@ sub signature(%)
      +{ type     => 'SOAP-ENV:Body'
       , before => sub {
           my ($node, $path) = @_;
-          $sig->checkDigest($node);
-          $node;
+          $sig->checkElement($node);
       }};
     $schema->declare(READER => 'SOAP-ENV:Envelope', hooks => $check_body);
 
@@ -195,7 +197,7 @@ sub wsseBasicAuth($$$@)
       );
 
    my $doc  = XML::LibXML::Document->new('1.0', 'UTF-8');
-   $auth->process($doc, {});
+   $auth->create($doc, {});
 }
 
 # [1.0] Expired interface
@@ -214,7 +216,7 @@ sub wsseTimestamp($$$@)
       );
 
    my $doc  = XML::LibXML::Document->new('1.0', 'UTF-8');
-   $ts->process($doc, {});
+   $ts->create($doc, {});
 }
  
 

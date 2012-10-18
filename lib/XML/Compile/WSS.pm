@@ -45,16 +45,18 @@ XML::Compile::WSS - OASIS Web Services Security
 The Web Services Security working group of W3C develops a set of
 standards which add signatures and encryption to XML.
 
-In its current status, this module supports the following records in
-the C<Security> header:
+In its current status, this module implements features in the C<Security>
+header.  One header may contain more than one of these:
 =over 4
 =item * timestamps in M<XML::Compile::WSS::Timestamp>
 =item * username/password authentication in M<XML::Compile::WSS::BasicAuth>
 =item * signing of the body in M<XML::Compile::WSS::Signature>
+=item * encryption is not yet supported.  Please hire me to get it implemented.
 =back
 
-Encryption is not yet supported.  Please hire me to get it implemented.
 You will certainly need the constants from M<XML::Compile::WSS::Util>.
+Besides, when you want to use Security with SOAP, then use
+M<XML::Compile::SOAP::WSS>.
 
 =chapter METHODS
 
@@ -72,7 +74,7 @@ The only option is currently C<WSS11MODULE>.
 =default version C<undef>
 Alternative for C<wss_version>, but not always as clear.
 
-=option  schema M<XML::Compile::Cache>
+=option  schema an M<XML::Compile::Cache> object
 =default schema C<undef>
 Add the WSS extension information to the provided schema.  If not used,
 you have to call M<loadSchemas()> before compiling readers and writers.
@@ -112,6 +114,8 @@ sub prepare($)
     $self->prepareReading($schema);
     $self;
 }
+sub prepareWriting($) { shift }
+sub prepareReading($) { shift }
 
 #-----------
 =section Attributes
@@ -142,7 +146,7 @@ sub _hook_WSU_ID
 }
 
 #-----------
-=section Internals
+=section Helpers
 
 =method dateTime TIME|STRING|HASH
 Returns a structure which can be used as timestamp, for instance in
@@ -182,6 +186,9 @@ sub dateTime($)
       , ValueType => SCHEMA2001.'/dateTime'
       };
 }
+
+#-----------
+=section Internals
 
 =c_method loadSchemas SCHEMA, VERSION
 SCHEMA must extend M<XML::Compile::Cache>.
@@ -252,53 +259,60 @@ __PATCH
 
     # If we find a wsse_Security which points to a WSS or an ARRAY of
     # WSS, we run all of them.
-    my $process_security =
+    my $create_security =
      +{ type   => 'wsse:SecurityHeaderType'
       , before => sub {
         my ($doc, $from, $path) = @_;
         my $data = {};
         if( UNIVERSAL::isa($from, 'XML::Compile::SOAP::WSS')
          || UNIVERSAL::isa($from, __PACKAGE__))
-             { $from->process($doc, $data) }
+             { $from->create($doc, $data) }
         elsif(ref $from eq 'ARRAY')
-             { $_->process($doc, $data) for @$from }
+             { $_->create($doc, $data) for @$from }
         else { $data = $from }
 
         $data;
     }};
 
-    $schema->declare(WRITER => 'wsse:Security', hooks => $process_security);
+    $schema->declare(WRITER => 'wsse:Security', hooks => $create_security);
     $schema;
 }
 
-sub prepareWriting($) { shift }
-sub prepareReading($) { shift }
+#---------------------------
 
-=section SEE ALSO
+=chapter DETAILS
+
+=section Specifications
+
+A huge number of specifications act in this field.  Every self respecting
+company has contributed its own implementation into the field.  A lot of
+this is B<not supported>, but the list of constants should be complete
+in M<XML::Compile::WSS::Util>.
+
 =over 4
 
-=item XML Security Generic Hybrid Ciphers
+=item * XML Security Generic Hybrid Ciphers
 F<http://www.w3.org/TR/2011/CR-xmlsec-generic-hybrid-20110303/>, 3 March 2011
 
-=item XML Signature Properties
+=item * XML Signature Properties
 F<http://www.w3.org/TR/2011/CR-xmldsig-properties-20110303/>, 3 March 2011
 
-=item XML Signature Syntax and Processing Version 1.1
+=item * XML Signature Syntax and Processing Version 1.1
 F<http://www.w3.org/TR/2011/CR-xmldsig-core1-20110303/>, 3 March 2011
 
-=item SOAP message security
+=item * SOAP message security
 F<http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0.pdf>, March 2004
 
-=item XML Signature Syntax and Processing (Second Edition)
+=item * XML Signature Syntax and Processing (Second Edition)
 F<http://www.w3.org/TR/2008/REC-xmldsig-core-20080610/>, 10 June 2008
 
-=item RFC4050 Using the ECDSA for XML Digital Signatures
+=item * RFC4050 Using the ECDSA for XML Digital Signatures
 F<http://www.ietf.org/rfc/rfc4050.txt>, april 2005
 
-=item RFC4051 Additional XML Security Uniform Resource Identifiers (URIs)
+=item * RFC4051 Additional XML Security Uniform Resource Identifiers (URIs)
 F<http://www.ietf.org/rfc/rfc4051.txt>, april 2005
 
-=item XML Encryption Syntax and Processing
+=item * XML Encryption Syntax and Processing
 F<http://www.w3.org/TR/2002/REC-xmlenc-core-20021210/>, 10 December 2002
 
 =back
