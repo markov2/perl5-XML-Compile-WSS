@@ -35,12 +35,19 @@ XML::Compile::WSS - OASIS Web Services Security
  my $schema = XML::Compile::Cache->new(...);
  my $auth   = XML::Compile::WSS::BasicAuth->new
    (schema => $schema, username => $user, ...);
+ my $elem   = $auth->create($doc, $data);
 
  # ... or as SOAP slave (strict order of object creation!)
  my $wss    = XML::Compile::SOAP::WSS->new;
  my $wsdl   = XML::Compile::WSDL11->new($wsdlfn);
  my $auth   = $wss->basicAuth(username => $user, ...);
- 
+ my $answer = $wsdl->call($operation, wsse_Security => $auth, %data);
+ # same, because "all" defined is default
+ my $answer = $wsdl->call($operation, %data);
+ # or
+ my $call   = $wsdl->compileClient($operation);
+ my $answer = $call->(%data);
+
 =chapter DESCRIPTION
 The Web Services Security working group of W3C develops a set of
 standards which add signatures and encryption to XML.
@@ -129,21 +136,23 @@ sub version() {shift->{XCW_version}}
 sub schema()  {$schema}
 
 #-----------
+=section Apply
 
-# Some elements are allowed to have an Id attribute from the wsu
-# schema, regardless of what the actual schema documents say.  So an
-# attribute "wsu_Id" should get interpreted as such, if the writer
-# has registered this hook.
-sub _hook_WSU_ID
-{   my ($doc, $values, $path, $tag, $r) = @_ ;
-    my $id = delete $values->{wsu_Id};  # remove first, to avoid $r complaining
-    my $node = $r->($doc, $values);
-    if($id)
-    {   $node->setNamespace(WSU_10, 'wsu', 0);
-        $node->setAttributeNS(WSU_10, 'Id' => $id);
-    }
-    $node;
-}
+=method create DOC, SECURITY, DATA
+Adds some WSS element to SECURITY.  The DATA is the structure which
+is passed to some writer (for instance, the DATA which the user
+passes to the SOAP call).  There is quite some flexibility in that
+structure, so should not be used, in general.
+=cut
+
+sub create($$) {shift}
+
+=method check SECURITY
+Check whether received SECURITY information is correct.  Each active
+WSS feature must check whether it finds information for it.
+=cut
+
+sub check($) {shift}
 
 #-----------
 =section Helpers
@@ -185,6 +194,21 @@ sub dateTime($)
      +{ _ => $time
       , ValueType => SCHEMA2001.'/dateTime'
       };
+}
+
+# Some elements are allowed to have an Id attribute from the wsu
+# schema, regardless of what the actual schema documents say.  So an
+# attribute "wsu_Id" should get interpreted as such, if the writer
+# has registered this hook.
+sub _hook_WSU_ID
+{   my ($doc, $values, $path, $tag, $r) = @_ ;
+    my $id = delete $values->{wsu_Id};  # remove first, to avoid $r complaining
+    my $node = $r->($doc, $values);
+    if($id)
+    {   $node->setNamespace(WSU_10, 'wsu', 0);
+        $node->setAttributeNS(WSU_10, 'Id' => $id);
+    }
+    $node;
 }
 
 #-----------
@@ -256,25 +280,6 @@ __PATCH
     $schema->allowUndeclared(1);
     $schema->addCompileOptions(RW => mixed_elements => 'STRUCTURAL');
     $schema->anyElement('ATTEMPT');
-
-    # If we find a wsse_Security which points to a WSS or an ARRAY of
-    # WSS, we run all of them.
-    my $create_security =
-     +{ type   => 'wsse:SecurityHeaderType'
-      , before => sub {
-        my ($doc, $from, $path) = @_;
-        my $data = {};
-        if( UNIVERSAL::isa($from, 'XML::Compile::SOAP::WSS')
-         || UNIVERSAL::isa($from, __PACKAGE__))
-             { $from->create($doc, $data) }
-        elsif(ref $from eq 'ARRAY')
-             { $_->create($doc, $data) for @$from }
-        else { $data = $from }
-
-        $data;
-    }};
-
-    $schema->declare(WRITER => 'wsse:Security', hooks => $create_security);
     $schema;
 }
 
