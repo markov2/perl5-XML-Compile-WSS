@@ -13,7 +13,7 @@ XML::Compile::WSS::Timestamp - expiration
 
 =chapter SYNOPSIS
 
- # used in combination with anything
+ # used in combination with any XML schema
  my $wss = XML::Compile::WSS::Timestamp->new
    ( ... parametes, some required
    , schema => $anything
@@ -23,7 +23,7 @@ XML::Compile::WSS::Timestamp - expiration
  my $wss  = XML::Compile::SOAP::WSS->new;
  my $wsdl = XML::Compile::WSDL11->new($wsdlfn);
  my $ts   = $wss->timestamp
-   ( ... same params
+   ( ... same params, never 'schema'
    );
 
 =chapter DESCRIPTION
@@ -106,18 +106,6 @@ sub timestamps()
     ($created, $self->dateTime($e));
 }
 
-# To be merged with the one a level lower.
-sub _hook_WSU_ID
-{   my ($doc, $values, $path, $tag, $r) = @_ ;
-    my $id = delete $values->{wsu_Id};  # remove first, to avoid $r complaining
-    my $node = $r->($doc, $values);
-    if($id)
-    {   $node->setNamespace(WSU_10, 'wsu', 0);
-        $node->setAttributeNS(WSU_10, Id => $id);
-    }
-    $node;
-}
-
 sub prepareWriting($)
 {   my ($self, $schema) = @_;
     $self->SUPER::prepareWriting($schema);
@@ -125,7 +113,7 @@ sub prepareWriting($)
 
     my $ts_type = $schema->findName('wsu:Timestamp') ;
     my $make_ts = $schema->writer($ts_type, include_namespaces => 1,
-      , hook => {type => 'wsu:TimestampType', replace => \&_hook_WSU_ID} );
+      , hook => $self->writerHookWsuId('wsu:TimestampType'));
     $schema->prefixFor(WSU_10);
 
     $self->{XCWT_stamp} = sub {

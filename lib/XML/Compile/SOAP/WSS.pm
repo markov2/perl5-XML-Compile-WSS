@@ -28,32 +28,36 @@ XML::Compile::SOAP::WSS - Web Service Security used in SOAP
    );
 
  # Will include all defined security features
- my $call = $wsdl->compileClient($opname);
+ my $call     = $wsdl->compileClient($opname);
  my ($answer, $trace) = $call->(%data);
 
  # Only explicit security features:
- my $call = $wsdl->compileClient($opname);
+ my $call     = $wsdl->compileClient($opname);
  my ($answer, $trace) = $call->(wsse_Security => $auth, %data);
- my $trace = $call->(wsse_Security => [$auth], %data);
+
+ my @features = ($auth);    # any selection of features
+ my $answer   = $call->(wsse_Security => \@features, %data);
  
 =chapter DESCRIPTION
-The Web Service Security protocol is implemented in extensions of
-M<XML::Compile::WSS>. This module integrates WSS in SOAP usage.
+The Web Service Security protocol is implemented in the sub-classes of
+M<XML::Compile::WSS>. This module integrates WSS features in SOAP usage.
 
-This module is an M<XML::Compile::SOAP::Extension>, a plugin for the
-SOAP code.  Some of these protocols implemented with these plugins
-behave badly: interfere with the WSDL specification.  Therefore, these
-B<WSDL plugins> have to be B<instantiated before the WSDL> files get read.
-The use of the information can only take place when all schema's are read,
-so these B<security features> can only be B<created after> that.
+This module is an M<XML::Compile::SOAP::Extension>; a plugin for the
+SOAP infra-structure.  Many of these extension protocols behave badly:
+they usually interfere with the WSDL specification.  Therefore, all
+B<WSDL plugins> have to be instantiated before the WSDL files get read,
+i.e. before the WSDL object itself gets instantiated.  The use of the
+information can only take place when all schema's are read, so these
+security features can only be created after that.
 
 =chapter METHODS
 
 =section Constructors
 
 =c_method new OPTIONS
-Usually, you do not call M<new()> but one of the specific constructors.
-Depends on the WSS feature you need.
+=option  schema M<XML::Compile::Cache> object
+=default schema C<undef>
+Do not use this in combination with a WSDL, but always in any other case.
 =cut
 
 sub init($)
@@ -81,10 +85,14 @@ sub wsdl11Init($$)
 sub soap11OperationInit($$)
 {   my ($self, $op, $args) = @_;
 
+    my $schema = $self->schema
+        or error __x"WSS not connected to the WSDL: WSS needs to be instantiated
+before the WSDL because it influences its interpretation";
+
     trace "adding wss header logic";  # get full type from any schema
-    my $sec = $self->schema->findName('wsse:Security');
-    $op->addHeader(INPUT  => "wsse_Security" => $sec);
-    $op->addHeader(OUTPUT => "wsse_Security" => $sec);
+    my $sec = $schema->findName('wsse:Security');
+    $op->addHeader(INPUT  => "wsse_Security" => $sec, mustUnderstand => 1);
+    $op->addHeader(OUTPUT => "wsse_Security" => $sec, mustUnderstand => 1);
 }
 
 sub soap11ClientWrapper($$$)
@@ -118,17 +126,26 @@ sub soap11ClientWrapper($$$)
 =section Attributes
 
 =method schema
-=method wssConfigs
-=method addWSS WSSOBJ
-Add a new M<XML::Compile::WSS> object to the list of maintained.
+
+=method features
+Returns a list of all security features.
+
+=method addFeature WSSOBJ
+Add a new M<XML::Compile::WSS> object to the list of maintained features.
 =cut
 
-sub schema()     {shift->{XCSW_schema}}
-sub wssConfigs() { @{shift->{XCSW_wss}} }
-sub addWSS($) { my ($wss, $n) = (shift->{XCSW_wss}, shift); push @$wss, $n; $n }
+sub schema()   { shift->{XCSW_schema} }
+sub features() { @{shift->{XCSW_wss}} }
+sub addFeature($)
+{   my ($wss, $n) = (shift->{XCSW_wss}, shift);
+    push @$wss, $n;
+    $n;
+}
 
 #---------------------------
 =section Security features
+Create one or more of these "features", components in the security
+header.
 =cut
 
 sub _start($$)
@@ -141,7 +158,7 @@ sub _start($$)
         or error __x"instantiate {pkg} before the wsdl, plugins after"
              , pkg => __PACKAGE__;
 
-    $self->addWSS($plugin->new($args));
+    $self->addFeature($plugin->new($args));
 }
 
 =method basicAuth OPTIONS

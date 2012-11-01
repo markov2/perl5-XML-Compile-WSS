@@ -5,9 +5,8 @@ package XML::Compile::WSS;
 
 use Log::Report 'xml-compile-wss';
 
-use XML::Compile::WSS::Util qw/:wss11 UTP11_PDIGEST UTP11_PTEXT/;
+use XML::Compile::WSS::Util qw/:wss11/;
 use XML::Compile::Util      qw/SCHEMA2001/;
-use XML::Compile::C14N;
 use XML::Compile::Schema::BuiltInTypes qw/builtin_type_info/;
 
 use File::Basename          qw/dirname/;
@@ -16,14 +15,18 @@ use Encode                  qw/encode/;
 use MIME::Base64            qw/encode_base64/;
 use POSIX                   qw/strftime/;
 
-my @prefixes11 = 
- ( wss   => WSS_11,  wsu    => WSU_10,    wsse  => WSSE_10
- , ds    => DSIG_NS, dsig11 => DSIG11_NS, dsigm => DSIG_MORE_NS
- , xenc  => XENC_NS, ghc    => GHC_NS,    dsp   => DSP_NS
- );
+my @prefixes10 =
+  ( ds  => DSIG_NS, wsse => WSSE_10, wsu => WSU_10
+  );
+
+my @prefixes11 =
+  ( ds  => DSIG_NS, wsse => WSSE_10, wsu => WSU_10
+  , wss => WSS_11,  xenc => XENC_NS
+  );
 
 my %versions =
-  ( '1.1' => {xsddir => 'wss11', prefixes => \@prefixes11}
+  ( '1.0' => { xsddir => 'wss10', prefixes => \@prefixes10 }
+  , '1.1' => { xsddir => 'wss11', prefixes => \@prefixes11 }
   );
 
 =chapter NAME
@@ -31,20 +34,23 @@ XML::Compile::WSS - OASIS Web Services Security
 
 =chapter SYNOPSIS
 
- # This modules van be used "stand-alone" ...
+ # This modules can be used "stand-alone" ==>
  my $schema = XML::Compile::Cache->new(...);
  my $auth   = XML::Compile::WSS::BasicAuth->new
    (schema => $schema, username => $user, ...);
  my $elem   = $auth->create($doc, $data);
 
- # ... or as SOAP slave (strict order of object creation!)
+ # ==> or as SOAP slave
  my $wss    = XML::Compile::SOAP::WSS->new;
  my $wsdl   = XML::Compile::WSDL11->new($wsdlfn);
- my $auth   = $wss->basicAuth(username => $user, ...);
+ my $auth   = $wss->basicAuth(username => $user, ...);  # once!
+
+ # SOAP call, compile on demand
  my $answer = $wsdl->call($operation, wsse_Security => $auth, %data);
- # same, because "all" defined is default
+ # same, because "all" defined is default, $auth is in 'all'
  my $answer = $wsdl->call($operation, %data);
- # or
+
+ # or SOAP call, explicit compile
  my $call   = $wsdl->compileClient($operation);
  my $answer = $call->(%data);
 
@@ -52,8 +58,8 @@ XML::Compile::WSS - OASIS Web Services Security
 The Web Services Security working group of W3C develops a set of
 standards which add signatures and encryption to XML.
 
-In its current status, this module implements features in the C<Security>
-header.  One header may contain more than one of these:
+This module implements features in the C<Security> header.  One header
+may contain more than one of these features:
 =over 4
 =item * timestamps in M<XML::Compile::WSS::Timestamp>
 =item * username/password authentication in M<XML::Compile::WSS::BasicAuth>
@@ -61,9 +67,11 @@ header.  One header may contain more than one of these:
 =item * encryption is not yet supported.  Please hire me to get it implemented.
 =back
 
-You will certainly need the constants from M<XML::Compile::WSS::Util>.
-Besides, when you want to use Security with SOAP, then use
-M<XML::Compile::SOAP::WSS>.
+Furthermore
+=over 4
+=item * you will certainly need the constants from M<XML::Compile::WSS::Util>.
+=item * for SOAP use M<XML::Compile::SOAP::WSS> to create above features.
+=back
 
 =chapter METHODS
 
@@ -83,8 +91,9 @@ Alternative for C<wss_version>, but not always as clear.
 
 =option  schema an M<XML::Compile::Cache> object
 =default schema C<undef>
-Add the WSS extension information to the provided schema.  If not used,
-you have to call M<loadSchemas()> before compiling readers and writers.
+Add the WSS extension information to the provided schema.  If not provided
+at instantiation, you have to call M<loadSchemas()> before compiling
+readers and writers.
 =cut
 
 sub new(@)
@@ -93,7 +102,6 @@ sub new(@)
     (bless {}, $class)->init($args)->prepare;
 }
 
-my $schema;
 sub init($)
 {   my ($self, $args) = @_;
     my $version = $args->{wss_version} || $args->{version}
@@ -108,15 +116,15 @@ sub init($)
              , v => $version, vs => [keys %versions];
     $self->{XCW_version} = $version;
 
-    if($schema = $args->{schema})
-    {   my $class = ref $self;    # it is class, not object, related!
-        $class->loadSchemas($args->{schema}, $version);
+    if(my $schema = $self->{XCW_schema} = $args->{schema})
+    {   $self->loadSchemas($schema, $version);
     }
     $self;
 }
 
 sub prepare($)
 {   my ($self, $args) = @_;
+    my $schema = $self->schema;
     $self->prepareWriting($schema);
     $self->prepareReading($schema);
     $self;
@@ -127,13 +135,15 @@ sub prepareReading($) { shift }
 #-----------
 =section Attributes
 
-=method version
+=method wssVersion
 Returns the version number.
 =method schema
+Returns the schema used to implement this feature.
 =cut
 
-sub version() {shift->{XCW_version}}
-sub schema()  {$schema}
+sub version()    {shift->{XCW_version}}  # deprecated
+sub wssVersion() {shift->{XCW_version}}
+sub schema()     {shift->{XCW_schema}}
 
 #-----------
 =section Apply
@@ -170,7 +180,7 @@ used to cover this design mistake.
 
   # Both will get ValueType="$xsd/dateTime"
   Created => time()                 # will get formatted
-  Created => '2012-10-14T22:26:21Z' # autodected
+  Created => '2012-10-14T22:26:21Z' # autodected ValueType
 
   # Explicit formatting
   Created => { _ => 'this Christmas'
@@ -178,7 +188,7 @@ used to cover this design mistake.
              };
 
   # No ValueType added
-  Created => 'this Christmas'
+  Created => '2012-11-01'
 =cut
 
 # wsu had "allow anything" date fields, not type dateTime
@@ -196,37 +206,23 @@ sub dateTime($)
       };
 }
 
-# Some elements are allowed to have an Id attribute from the wsu
-# schema, regardless of what the actual schema documents say.  So an
-# attribute "wsu_Id" should get interpreted as such, if the writer
-# has registered this hook.
-sub _hook_WSU_ID
-{   my ($doc, $values, $path, $tag, $r) = @_ ;
-    my $id = delete $values->{wsu_Id};  # remove first, to avoid $r complaining
-    my $node = $r->($doc, $values);
-    if($id)
-    {   $node->setNamespace(WSU_10, 'wsu', 0);
-        $node->setAttributeNS(WSU_10, 'Id' => $id);
-    }
-    $node;
-}
-
 #-----------
 =section Internals
 
-=c_method loadSchemas SCHEMA, VERSION
+=ci_method loadSchemas SCHEMA, VERSION
 SCHEMA must extend M<XML::Compile::Cache>.
 
 The SCHEMA settings will may changed a little. For one, the
 C<allow_undeclared> flag will be set. Also, C<any_element> will be set to
 'ATTEMPT' and C<mixed_elements> to 'STRUCTURAL'.
 
+You can not mix multiple versions of WSS inside one SCHEMA, because
+there will be too much confusion about prefixes.
 =cut
 
-my $schema_loaded = 0;
 sub loadSchemas($$)
-{   my ($class, $schema, $version) = @_;
-    return $class if $schema_loaded++;
+{   my ($thing, $schema, $version) = @_;
+    return if $schema->{"XCW_wss_loaded"}++;
 
     $schema->isa('XML::Compile::Cache')
         or error __x"loadSchemas() requires a XML::Compile::Cache object";
@@ -241,25 +237,25 @@ sub loadSchemas($$)
     (my $xsddir = __FILE__) =~ s! \.pm$ !/$def->{xsddir}!x;
     my @xsd = glob "$xsddir/*.xsd";
 
-    trace "loading wss for $version";
+    trace "loading wss schemas $version";
 
     $schema->importDefinitions
-       ( \@xsd
+     ( \@xsd
 
-         # Missing from wss-secext-1.1.xsd (schema BUG)  Gladly, all
-         # provided schemas have element_form qualified.
-       , element_form_default => 'qualified'
-       );
+       # Missing from wss-secext-1.1.xsd (schema BUG)  Gladly, all
+       # provided schemas have element_form qualified.
+     , element_form_default => 'qualified'
+     );
 
     # Another schema bug; attribute wsu:Id not declared qualified
     # Besides, ValueType is often used on timestamps, which are declared
     # as free-format fields (@*!&$#!&^ design committees!)
-    my ($wsu, $xsd) = (WSU_10, SCHEMA2001);
+    my ($wsu10, $xsd) = (WSU_10, SCHEMA2001);
     $schema->importDefinitions( <<__PATCH );
 <schema
   xmlns="$xsd"
-  xmlns:wsu="$wsu"
-  targetNamespace="$wsu"
+  xmlns:wsu="$wsu10"
+  targetNamespace="$wsu10"
   elementFormDefault="qualified"
   attributeFormDefault="unqualified">
     <attribute name="Id" type="ID" form="qualified" />
@@ -276,11 +272,34 @@ sub loadSchemas($$)
 </schema>
 __PATCH
 
-    XML::Compile::C14N->new(version => '1.1', schema => $schema);
     $schema->allowUndeclared(1);
     $schema->addCompileOptions(RW => mixed_elements => 'STRUCTURAL');
     $schema->anyElement('ATTEMPT');
     $schema;
+}
+
+=method writerHookWsuId TYPE
+Creates a hook for an XML producer (writer), to understand wsu:Id on
+elements of TYPE.
+=cut
+
+sub writerHookWsuId($)
+{   my ($self, $type) = @_;
+
+    my $wrapper = sub
+      { my ($doc, $values, $path, $tag, $r) = @_ ;
+
+        # Remove $id first, to avoid $r complaining about unused
+        my $id   = delete $values->{wsu_Id};
+        my $node = $r->($doc, $values);
+        if($id)
+        {   $node->setNamespace(WSU_10, 'wsu', 0);
+            $node->setAttributeNS(WSU_10, 'Id' => $id);
+        }
+        $node;
+      };
+
+     +{ type => $type, replace => $wrapper };
 }
 
 #---------------------------

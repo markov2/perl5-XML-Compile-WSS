@@ -18,10 +18,10 @@ XML::Compile::WSS::BasicAuth - username/password security
 
 =chapter SYNOPSIS
 
- # you may need a few of these
+ # you need a few constants
  use XML::Compile::WSS::Util  qw/:utp11/;
 
- # used in combination with anything
+ # used in combination with any other XML schema
  my $auth = XML::Compile::WSS::BasicAuth->new
    ( schema   => $anything
    , username => $user
@@ -52,7 +52,10 @@ a timestamp, a nonce and SHA1 hashing will keep the password a secret.
 =default wss_version  '1.1'
 
 =requires username STRING
+
 =requires password STRING
+The password in plain text.  Use pwformat digest to send it encrypted
+over the network.
 
 =option   pwformat UTP11_PTEXT|UTP11_PDIGEST
 =default  pwformat UTP11_PTEXT
@@ -119,18 +122,6 @@ sub wsuId()    {shift->{XCWB_wsu_id}  }
 sub created()  {shift->{XCWB_created} }
 sub pwformat() {shift->{XCWB_pwformat}}
 
-# To be merged with the one a level lower.
-sub _hook_WSU_ID
-{   my ($doc, $values, $path, $tag, $r) = @_ ;
-    my $id = delete $values->{wsu_Id};  # remove first, to avoid $r complaining
-    my $node = $r->($doc, $values);
-    if($id)
-    {   $node->setNamespace(WSU_10, 'wsu', 0);
-        $node->setAttributeNS(WSU_10, 'Id' => $id);
-    }
-    $node;
-}
-
 sub prepareWriting($)
 {   my ($self, $schema) = @_;
     $self->SUPER::prepareWriting($schema);
@@ -163,8 +154,7 @@ sub prepareWriting($)
     # We set up the writer with a hook to add that particular attribute.
     my $un_type = $schema->findName('wsse:UsernameToken');
     my $make_un = $schema->writer($un_type, include_namespaces => 1,
-      , hook => { type    => 'wsse:UsernameTokenType'
-                , replace => \&_hook_WSU_ID});
+      , hook => $self->writerHookWsuId('wsse:UsernameTokenType'));
     $schema->prefixFor(WSU_10);  # to get ns-decl
 
     $self->{XCWB_login} = sub {
