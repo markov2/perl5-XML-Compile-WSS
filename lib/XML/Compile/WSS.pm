@@ -124,7 +124,9 @@ sub init($)
 
 sub prepare($)
 {   my ($self, $args) = @_;
-    my $schema = $self->schema;
+    my $schema = $self->schema
+        or error __x"no schema yet. Instantiate ::WSS before ::WSDL";
+
     $self->prepareWriting($schema);
     $self->prepareReading($schema);
     $self;
