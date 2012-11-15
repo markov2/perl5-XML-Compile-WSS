@@ -10,7 +10,6 @@ use XML::Compile::Util      qw/SCHEMA2001/;
 use XML::Compile::Schema::BuiltInTypes qw/builtin_type_info/;
 
 use File::Basename          qw/dirname/;
-use Digest::SHA1            qw/sha1_base64/;
 use Encode                  qw/encode/;
 use MIME::Base64            qw/encode_base64/;
 use POSIX                   qw/strftime/;
@@ -224,7 +223,7 @@ there will be too much confusion about prefixes.
 
 sub loadSchemas($$)
 {   my ($thing, $schema, $version) = @_;
-    return if $schema->{"XCW_wss_loaded"}++;
+    return if $schema->{XCW_wss_loaded}++;
 
     $schema->isa('XML::Compile::Cache')
         or error __x"loadSchemas() requires a XML::Compile::Cache object";
