@@ -186,6 +186,7 @@ sub prepareWriting($)
 
 sub create($$)
 {   my ($self, $doc, $data) = @_;
+    $self->SUPER::create($doc, $data);
     $self->{XCWB_login}->($doc, $data);
 }
 

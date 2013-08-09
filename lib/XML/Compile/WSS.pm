@@ -13,19 +13,20 @@ use File::Basename          qw/dirname/;
 use Encode                  qw/encode/;
 use MIME::Base64            qw/encode_base64/;
 use POSIX                   qw/strftime/;
+use Scalar::Util            qw/weaken/;
 
-my @prefixes10 =
+my %prefixes10 =
   ( ds  => DSIG_NS, wsse => WSSE_10, wsu => WSU_10
   );
 
-my @prefixes11 =
+my %prefixes11 =
   ( ds  => DSIG_NS, wsse => WSSE_10, wsu => WSU_10
   , wss => WSS_11,  xenc => XENC_NS
   );
 
 my %versions =
-  ( '1.0' => { xsddir => 'wss10', prefixes => \@prefixes10 }
-  , '1.1' => { xsddir => 'wss11', prefixes => \@prefixes11 }
+  ( '1.0' => { xsddir => 'wss10', prefixes => \%prefixes10 }
+  , '1.1' => { xsddir => 'wss11', prefixes => \%prefixes11 }
   );
 
 =chapter NAME
@@ -93,12 +94,17 @@ Alternative for C<wss_version>, but not always as clear.
 Add the WSS extension information to the provided schema.  If not provided
 at instantiation, you have to call M<loadSchemas()> before compiling
 readers and writers.
+
+=option  prepare 'READER'|'WRITER'|'ALL'|'NONE'
+=default prepare 'ALL'
 =cut
 
 sub new(@)
 {   my $class = shift;
     my $args  = @_==1 ? shift : {@_};
-    (bless {}, $class)->init($args)->prepare;
+    my $self  = (bless {}, $class)->init($args);
+    $self->prepare($args->{prepare} || 'ALL');
+    $self;
 }
 
 sub init($)
@@ -116,22 +122,30 @@ sub init($)
     $self->{XCW_version} = $version;
 
     if(my $schema = $self->{XCW_schema} = $args->{schema})
-    {   $self->loadSchemas($schema, $version);
+    {   weaken $self->{XCW_schema};
+        $self->loadSchemas($schema, $version);
     }
+
     $self;
 }
 
 sub prepare($)
-{   my ($self, $args) = @_;
-    my $schema = $self->schema
-        or error __x"no schema yet. Instantiate ::WSS before ::WSDL";
+{   my ($self, $how) = @_;
+    my $schema = $self->schema;
 
-    $self->prepareWriting($schema);
-    $self->prepareReading($schema);
+    my ($r, $w)
+      = $how eq 'ALL'    ? (1, 1)
+      : $how eq 'READER' ? (1, 0)
+      : $how eq 'WRITER' ? (0, 1)
+      : $how eq 'NONE'   ? (0, 0)
+      :                    panic $how;
+
+    $self->prepareWriting($schema) if $w;
+    $self->prepareReading($schema) if $r;
     $self;
 }
-sub prepareWriting($) { shift }
-sub prepareReading($) { shift }
+sub prepareWriting($) { $_[0]->{XCW_prepare_w}++; $_[0] }
+sub prepareReading($) { $_[0]->{XCW_prepare_r}++; $_[0] }
 
 #-----------
 =section Attributes
@@ -156,14 +170,24 @@ passes to the SOAP call).  There is quite some flexibility in that
 structure, so should not be used, in general.
 =cut
 
-sub create($$) {shift}
+sub create($$)
+{   my $self = shift;
+    panic __x"WSS plugin {name} is not prepared for writing", name => ref $self
+        unless $self->{XCW_prepare_w};
+    $self;
+}
 
 =method check SECURITY
 Check whether received SECURITY information is correct.  Each active
 WSS feature must check whether it finds information for it.
 =cut
 
-sub check($) {shift}
+sub check($)
+{   my $self = shift;
+    panic __x"WSS plugin {name} is not prepared for reading", name => ref $self
+        unless $self->{XCW_prepare_r};
+    $self;
+}
 
 #-----------
 =section Helpers
@@ -230,10 +254,10 @@ sub loadSchemas($$)
 
     my $def      = $versions{$version};
     my $prefixes = $def->{prefixes};
-    $schema->prefixes(@$prefixes);
-    {   local $" = ',';
-        $schema->addKeyRewrite("PREFIXED(@$prefixes)");
-    }
+    $schema->addPrefixes($prefixes);
+
+    my $rewrite = join ',', sort keys %$prefixes;
+    $schema->addKeyRewrite("PREFIXED($rewrite)");
 
     (my $xsddir = __FILE__) =~ s! \.pm$ !/$def->{xsddir}!x;
     my @xsd = glob "$xsddir/*.xsd";

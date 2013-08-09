@@ -76,6 +76,7 @@ sub init($)
 
 #----------------------------------
 =section Attributes
+
 =method created
 =method expires
 =method lifetime
@@ -130,6 +131,7 @@ sub prepareWriting($)
 
 sub create($$)
 {   my ($self, $doc, $data) = @_;
+    $self->SUPER::create($doc, $data);
     $self->{XCWT_stamp}->($doc, $data);
 }
 

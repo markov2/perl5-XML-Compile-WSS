@@ -4,10 +4,14 @@ use strict;
 package XML::Compile::WSS::Util;
 use base 'Exporter';
 
+use Log::Report    'xml-compile-wss';
+use MIME::Base64   qw/decode_base64 encode_base64/;
+
 my @wss11 = qw/
-WSS_11	WSS11MODULE	DSIG11_NS  DSP_NS
-WSU_10	DSIG_NS		XENC_NS    WSM_10
-WSSE_10	DSIG_MORE_NS	GHC_NS
+WSS_11		WSS11MODULE	WSM_10		WSM_11		WSU_10
+WSSE_10
+DSIG_NS		XENC_NS		DSIG11_NS	DSP_NS		DSIG_MORE_NS
+GHC_NS		WSU_NS
  /;
 
 my @dsig  = qw/
@@ -40,14 +44,19 @@ DSIG11_NS		DSIG11_EC_KV		DSIG11_DER_KV
 
 my @xtp10 = qw/XTP10_X509 XTP10_X509v3 XTP10_X509PKI XTP10_X509PKC/;
 
-my @wsm10 = qw/WSM10_BASE64/;
+my @wsm10 = qw/
+WSM10_BASE64	WSM10_STR_TRANS
+wsm_encoded	wsm_decoded
+ /;
+
+my @wsm11 = qw/WSM11_PRINT_SHA1	WSM11_ENCKEY_SHA1 WSM11_ENCKEY/;
 
 my @xenc  = qw/
 XENC_NS		XENC_PROPS	XENC_AES128	XENC_DH		XENC_KW_AES256
 XENC_MIME_TYPE	XENC_SHA256	XENC_AES192	XENC_DH_KV	XENC_DSIG
-XENC_ELEMENT	XENC_SHA512	XENC_AES156	XENC_KW_3DES
+XENC_ELEMENT	XENC_SHA512	XENC_AES256	XENC_KW_3DES
 XENC_CONTENT	XENC_RIPEMD160	XENC_RSA_1_5	XENC_KW_AES128
-XENC_KEY	XENC_3DES	XENC_RSA_AEOP	XENC_KW_AES192
+XENC_KEY	XENC_3DES	XENC_RSA_OAEP	XENC_KW_AES192
  /;
 
 my @ghc = qw/
@@ -65,7 +74,7 @@ UTP11_PTEXT     UTP11_PDIGEST   UTP11_USERNAME
 our @EXPORT    = 'WSS11MODULE';
 our @EXPORT_OK
   = ( @wss11, @dsig, @dsig_more, @dsig11, @xenc, @ghc, @dsp, @utp11
-    , @wsm10, @xtp10);
+    , @wsm10, @wsm11, @xtp10);
 
 our %EXPORT_TAGS =
   ( wss11  => \@wss11
@@ -78,6 +87,7 @@ our %EXPORT_TAGS =
   , utp11  => \@utp11
   , xtp10  => \@xtp10
   , wsm10  => \@wsm10
+  , wsm11  => \@wsm11
   );
 
 =chapter NAME
@@ -113,22 +123,25 @@ use constant
 
   WSS_11   WSSE_10      DSIG_NS      DSIG11_NS    GHC_NS
   WSU_10   WSS11MODULE  DSIG_MORE_NS XENC_NS      DSP_NS
-  WSM_10   XTP_10
+  WSM_10   XTP_10	WSU_NS
 
 =cut
 
 use constant WSS_WG200401 => WSS_BASE.'/2004/01/oasis-200401-wss';
 use constant
-  { WSS_11  => WSS_BASE.'/oasis-wss-wssecurity-secext-1.1.xsd'
-  , WSU_10  => WSS_WG200401.'-wssecurity-utility-1.0.xsd' 
+  { WSU_10  => WSS_WG200401.'-wssecurity-utility-1.0.xsd' 
   , WSSE_10 => WSS_WG200401.'-wssecurity-secext-1.0.xsd'
   , UTP_10  => WSS_WG200401.'-username-token-profile-1.0'
   , XTP_10  => WSS_WG200401.'-x509-token-profile-1.0'
   , WSM_10  => WSS_WG200401.'-soap-message-security-1.0'
+
+  , WSS_11  => WSS_BASE.'/oasis-wss-wssecurity-secext-1.1.xsd'
+  , WSM_11  => WSS_BASE.'/oasis-wss-soap-message-security-1.1'
   };
 
 use constant
   { WSS11MODULE => WSS_11
+  , WSU_NS      => WSU_10
   };
 
 =section Export tag :xtp10
@@ -150,12 +163,52 @@ use constant
 Defines convenient constants in the soap-messages namespace.  See
 F<http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0.pdf >
 
-  WSM10_BASE64
+  WSM10_BASE64    WSM10_STR_TRANS
 
 =cut
 
 use constant
-  { WSM10_BASE64 => WSM_10.'#Base64Binary'
+  { WSM10_BASE64      => WSM_10.'#Base64Binary'
+  , WSM10_STR_TRANS   => WSM_10.'#STRTransform'
+  };
+
+=function wsm_encoded ENCODING, BYTES
+Encode the sequence of BYTES into the preferred.
+=cut
+
+sub wsm_encoded($$)
+{   my ($enc, $bytes) = @_;
+
+    return encode_base64 $bytes
+        if $enc eq WSM10_BASE64;
+
+    panic "unsupported encoding style $enc for encoding";
+}
+
+=function wsm_decoded ENCODING, BYTES
+Decode the sequence of BYTES from the given encoding.
+=cut
+
+sub wsm_decoded($$)
+{   my ($dec, $bytes) = @_;
+    $dec or return $bytes;
+
+    return decode_base64 $bytes
+        if $dec eq WSM10_BASE64;
+
+    panic "unsupported encoding style $dec for decoding";
+}
+
+=section Export tag :wsm11
+[1.08] Defines convenient constants in the soap-messages namespace.  See
+F<http://docs.oasis-open.org/wss-m/wss/v1.1.1/os/wss-SOAPMessageSecurity-v1.1.1-os.html>
+
+=cut
+
+use constant
+  { WSM11_PRINT_SHA1  => WSM_11.'#ThumbprintSHA1'
+  , WSM11_ENCKEY_SHA1 => WSM_11.'#EncryptedKeySHA1'
+  , WSM11_ENCKEY      => WSM_11.'#EncryptedKey'
   };
 
 =section Export tag C<:utp11>
@@ -326,9 +379,9 @@ specified in F<http://www.w3.org/TR/2002/REC-xmlenc-core-20021210/>
 
   XENC_NS         XENC_PROPS      XENC_AES128     XENC_DH
   XENC_MIME_TYPE  XENC_SHA256     XENC_AES192     XENC_DH_KV
-  XENC_ELEMENT    XENC_SHA512     XENC_AES156     XENC_KW_3DES
+  XENC_ELEMENT    XENC_SHA512     XENC_AES256     XENC_KW_3DES
   XENC_CONTENT    XENC_RIPEMD160  XENC_RSA_1_5    XENC_KW_AES128
-  XENC_KEY        XENC_3DES       XENC_RSA_AEOP   XENC_KW_AES192
+  XENC_KEY        XENC_3DES       XENC_RSA_OAEP   XENC_KW_AES192
   XENC_DSIG       XENC_KW_AES256
 
 =cut
@@ -351,11 +404,11 @@ use constant
   , XENC_3DES      => XENC.'#tripledes-cbc'
   , XENC_AES128    => XENC.'#aes128-cbc'
   , XENC_AES192    => XENC.'#aes192-cbc'
-  , XENC_AES156    => XENC.'#aes256-cbc'
+  , XENC_AES256    => XENC.'#aes256-cbc'
  
     # Key Transport
   , XENC_RSA_1_5   => XENC.'#rsa-1_5'
-  , XENC_RSA_AEOP  => XENC.'#rsa-oaep-mgf1p'
+  , XENC_RSA_OAEP  => XENC.'#rsa-oaep-mgf1p'
  
     # Key Agreement
   , XENC_DH        => XENC.'#dh'

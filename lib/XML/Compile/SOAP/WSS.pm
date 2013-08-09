@@ -10,6 +10,8 @@ use XML::Compile::WSS::Util  qw/:wss11 :utp11/;
 use XML::Compile::WSS        ();
 use XML::Compile::SOAP::Util qw/SOAP11ENV/;
 
+use Scalar::Util             qw/weaken/;
+
 =chapter NAME
 XML::Compile::SOAP::WSS - Web Service Security used in SOAP
 
@@ -35,7 +37,7 @@ XML::Compile::SOAP::WSS - Web Service Security used in SOAP
  my $call     = $wsdl->compileClient($opname);
  my ($answer, $trace) = $call->(wsse_Security => $auth, %data);
 
- my @features = ($auth);    # any selection of features
+ my @features = ($auth, ...);    # any selection of features
  my $answer   = $call->(wsse_Security => \@features, %data);
  
 =chapter DESCRIPTION
@@ -64,7 +66,9 @@ sub init($)
 {   my ($self, $args) = @_;
     $self->SUPER::init($args);
     $self->{XCSW_wss} = [];
+
     my $schema = $self->{XCSW_schema} = $args->{schema};
+    weaken $self->{XCSW_schema};
 
     # [1.0] to support backwards compat
     XML::Compile::WSS->loadSchemas($schema, '1.1') if $schema;
@@ -76,8 +80,10 @@ sub wsdl11Init($$)
     $self->SUPER::wsdl11Init($wsdl, $args);
 
     $self->{XCSW_schema} = $wsdl;
+    weaken $self->{XCSW_schema};
+
     XML::Compile::WSS->loadSchemas($wsdl, '1.1');
-    $wsdl->prefixes('SOAP-ENV' => SOAP11ENV);
+    $wsdl->addPrefixes('SOAP-ENV' => SOAP11ENV);
 
     $self;
 }
@@ -97,22 +103,26 @@ before the WSDL because it influences its interpretation";
 
 sub soap11ClientWrapper($$$)
 {   my ($self, $op, $call, $args) = @_;
-    # Add empty security object, otherwise hooks will not get called.
-    # May get overwritten by user supplied element or sublist of wss's.
     sub {
         my %data = @_;
         my $sec  = $data{wsse_Security};
+
+        # Support pre-1.0 interface
         return $call->(%data)
             if ref $sec eq 'HASH';
 
+        # select plugins
         my $wss  = $sec || $self->{XCSW_wss};
         my @wss  = ref $wss eq 'ARRAY' ? @$wss : $wss;
-        my $secw = $data{wsse_Security} = {};
 
+        # Adding WSS headers to $secw
+        my $secw = $data{wsse_Security} = {};
         my $doc  = $data{_doc} ||= XML::LibXML::Document->new('1.0','UTF-8');
         $_->create($doc, $secw) for @wss;
  
+        # The real work: SOAP message formatting and exchange
         my ($answer, $trace) = $call->(%data);
+
         if(defined $answer)
         {   my $secr = $answer->{wsse_Security} ||= {};
             $_->check($secr) for @wss;
@@ -136,9 +146,13 @@ Add a new M<XML::Compile::WSS> object to the list of maintained features.
 
 sub schema()   { shift->{XCSW_schema} }
 sub features() { @{shift->{XCSW_wss}} }
+
 sub addFeature($)
-{   my ($wss, $n) = (shift->{XCSW_wss}, shift);
-    push @$wss, $n;
+{   my ($self, $n) = @_;
+    my $schema = $n->schema
+        or error __x"no schema yet. Instantiate ::WSS before ::WSDL";
+
+    push @{$self->{XCSW_wss}}, $n;
     $n;
 }
 
@@ -187,35 +201,80 @@ sub timestamp(%)
 Put a crypto signature on one or more elements.
 See documentation in M<XML::Compile::WSS::Signature>.  The OPTIONS are
 passed to its new() method.
+
+=option  sign_types ARRAY
+=default sign_types 'SOAP-ENV:Body'
+[1.08] specify the types of elements which need to be signed.  If you
+have more elements of the same type, they will all get signed.
 =cut
+
 
 sub signature(%)
 {   my ($self, %args) = @_;
     my $schema = $args{schema} || $self->schema;
     my $sig    = $self->_start('XML::Compile::WSS::Signature', \%args);
+    my $signed = delete $args{sign_types} || 'SOAP-ENV:Body';
 
-    my $sign_body =
-     +{ type     => 'SOAP-ENV:Body'
+    my (@w_hooks, @r_hooks);
+    my (@elems_to_sign, @elems_to_check);
+    my $unique = time;
+
+    $schema->addHook
+      ( action   => 'WRITER'
+      , type     => $signed
       , after    => sub {
           my ($doc, $xml) = @_;
 
-          # This is called twice, caused by the trick to get first the
-          # body than the header processed when writing an envelope.
-          # The second time, the signature element is already prepared,
-          # no signing skipped.
-          $sig->signElement($xml, id => 'TheBody');  # returns a fixed elem
-          $sig->createSignature($doc);
-          $xml;
-     }};
-    $schema->declare(WRITER => 'SOAP-ENV:Envelope', hooks => $sign_body);
+          unless($xml->getAttributeNS(WSU_10, 'Id'))
+          {   my $wsuid = $args{id} || 'node-'.($xml+0);
+              $xml->setNamespace(WSU_10, 'wsu', 0);
+              $xml->setAttributeNS(WSU_10, 'Id', $wsuid);
 
-    my $check_body =
-     +{ type   => 'SOAP-ENV:Body'
+# Above two lines do add a xml:wsu per Id.  Below does not, which is not enough
+#            my $wsu   = $schema->prefixFor(WSU_10);
+#             $xml->setAttribute("$wsu:Id", $wsuid);
+          }
+
+#use XML::Compile::Util qw/type_of_node/;
+#warn "Registering to sign ".type_of_node($xml);
+          push @elems_to_sign, $xml;
+          $xml;
+        }
+      );
+
+    $schema->addHook
+      ( action => 'READER'
+      , type   => $signed
       , before => sub {
           my ($node, $path) = @_;
-          $sig->checkElement($node);
-      }};
-    $schema->declare(READER => 'SOAP-ENV:Envelope', hooks => $check_body);
+          push @elems_to_check, $node;
+          $node;
+        }
+      );
+
+    my $security_node;
+    $schema->addHook
+      ( action => 'WRITER'
+      , type   => 'wsse:SecurityHeaderType'
+      , after  => sub {
+          my ($doc, $xml) = @_;
+#warn "Located security node";
+          $schema->prefixFor(WSU_10);
+          $security_node = $xml;
+        }
+      );
+
+    my $add_signature = $sig->builder;
+    $schema->addHook
+      ( action => 'WRITER'
+      , type   => 'SOAP-ENV:Envelope'
+      , after  => sub {
+          my ($doc, $xml) = @_;
+#warn "Creating signature";
+          $add_signature->($doc, \@elems_to_sign, $security_node);
+          $xml;
+        }
+      );
 
     $sig;
 }
@@ -224,7 +283,7 @@ sub signature(%)
 # [1.0] Expired interface
 sub wsseBasicAuth($$$@)
 {   my ($self, $username, $password, $pwtype, %args) = @_;
-    # use XML::Compile::WSS::BasicAuth!!!  The method will be removed!
+    # use XML::Compile::WSS::BasicAuth!!!  This method will be removed!
 
     eval "require XML::Compile::WSS::BasicAuth";
     panic $@ if $@;
@@ -237,14 +296,14 @@ sub wsseBasicAuth($$$@)
       , schema    => $self->schema
       );
 
-   my $doc  = XML::LibXML::Document->new('1.0', 'UTF-8');
-   $auth->create($doc, {});
+    my $doc  = XML::LibXML::Document->new('1.0', 'UTF-8');
+    $auth->create($doc, {});
 }
 
 # [1.0] Expired interface
 sub wsseTimestamp($$$@)
 {   my ($self, $created, $expires, %args) = @_;
-    # use XML::Compile::WSS::Timestamp!!!  The method will be removed!
+    # use XML::Compile::WSS::Timestamp!!!  This method will be removed!
 
     eval "require XML::Compile::WSS::Timestamp";
     panic $@ if $@;
@@ -256,9 +315,8 @@ sub wsseTimestamp($$$@)
       , schema  => $self->schema
       );
 
-   my $doc  = XML::LibXML::Document->new('1.0', 'UTF-8');
-   $ts->create($doc, {});
+    my $doc  = XML::LibXML::Document->new('1.0', 'UTF-8');
+    $ts->create($doc, {});
 }
- 
 
 1;
