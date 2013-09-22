@@ -212,70 +212,12 @@ have more elements of the same type, they will all get signed.
 sub signature(%)
 {   my ($self, %args) = @_;
     my $schema = $args{schema} || $self->schema;
+
+    $args{sign_types} ||= 'SOAP-ENV:Body';
+    $args{sign_put}   ||= 'wsse:SecurityHeaderType';
+    $args{sign_when}  ||= 'SOAP-ENV:Envelope';
+
     my $sig    = $self->_start('XML::Compile::WSS::Signature', \%args);
-    my $signed = delete $args{sign_types} || 'SOAP-ENV:Body';
-
-    my (@w_hooks, @r_hooks);
-    my (@elems_to_sign, @elems_to_check);
-    my $unique = time;
-
-    $schema->addHook
-      ( action   => 'WRITER'
-      , type     => $signed
-      , after    => sub {
-          my ($doc, $xml) = @_;
-
-          unless($xml->getAttributeNS(WSU_10, 'Id'))
-          {   my $wsuid = $args{id} || 'node-'.($xml+0);
-              $xml->setNamespace(WSU_10, 'wsu', 0);
-              $xml->setAttributeNS(WSU_10, 'Id', $wsuid);
-
-# Above two lines do add a xml:wsu per Id.  Below does not, which is not enough
-#            my $wsu   = $schema->prefixFor(WSU_10);
-#             $xml->setAttribute("$wsu:Id", $wsuid);
-          }
-
-#use XML::Compile::Util qw/type_of_node/;
-#warn "Registering to sign ".type_of_node($xml);
-          push @elems_to_sign, $xml;
-          $xml;
-        }
-      );
-
-    $schema->addHook
-      ( action => 'READER'
-      , type   => $signed
-      , before => sub {
-          my ($node, $path) = @_;
-          push @elems_to_check, $node;
-          $node;
-        }
-      );
-
-    my $security_node;
-    $schema->addHook
-      ( action => 'WRITER'
-      , type   => 'wsse:SecurityHeaderType'
-      , after  => sub {
-          my ($doc, $xml) = @_;
-#warn "Located security node";
-          $schema->prefixFor(WSU_10);
-          $security_node = $xml;
-        }
-      );
-
-    my $add_signature = $sig->builder;
-    $schema->addHook
-      ( action => 'WRITER'
-      , type   => 'SOAP-ENV:Envelope'
-      , after  => sub {
-          my ($doc, $xml) = @_;
-#warn "Creating signature";
-          $add_signature->($doc, \@elems_to_sign, $security_node);
-          $xml;
-        }
-      );
-
     $sig;
 }
 

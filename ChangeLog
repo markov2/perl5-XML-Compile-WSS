@@ -1,6 +1,10 @@
 
 ==== version history of XML::Compile:WSS
 
+version 1.08_02: Sun Sep 22 22:47:26 CEST 2013
+	Changes:
+	- Move logic from ::SOAP::WSS into ::WSS::Signature
+
 version 1.08_01: Sat Aug 10 00:20:36 CEST 2013
 
 	Changes:

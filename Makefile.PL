@@ -21,7 +21,7 @@ __WARN
 
 WriteMakefile
  ( NAME	 	=> 'XML::Compile::WSS'
- , VERSION	=> '1.08_01'
+ , VERSION	=> '1.08_02'
 
  , PREREQ_PM    =>
      { 'XML::Compile'         => '1.36'
