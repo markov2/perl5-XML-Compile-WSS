@@ -104,11 +104,11 @@ before the WSDL because it influences its interpretation";
 sub soap11ClientWrapper($$$)
 {   my ($self, $op, $call, $args) = @_;
     sub {
-        my %data = @_;
-        my $sec  = $data{wsse_Security};
+        my $data = @_==1 ? shift : {@_};
+        my $sec  = $data->{wsse_Security};
 
         # Support pre-1.0 interface
-        return $call->(%data)
+        return $call->($data)
             if ref $sec eq 'HASH';
 
         # select plugins
@@ -116,12 +116,12 @@ sub soap11ClientWrapper($$$)
         my @wss  = ref $wss eq 'ARRAY' ? @$wss : $wss;
 
         # Adding WSS headers to $secw
-        my $secw = $data{wsse_Security} = {};
-        my $doc  = $data{_doc} ||= XML::LibXML::Document->new('1.0','UTF-8');
+        my $secw = $data->{wsse_Security} = {};
+        my $doc  = $data->{_doc} ||= XML::LibXML::Document->new('1.0','UTF-8');
         $_->create($doc, $secw) for @wss;
  
         # The real work: SOAP message formatting and exchange
-        my ($answer, $trace) = $call->(%data);
+        my ($answer, $trace) = $call->($data);
 
         if(defined $answer)
         {   my $secr = $answer->{wsse_Security} ||= {};

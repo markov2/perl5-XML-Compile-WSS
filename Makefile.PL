@@ -21,12 +21,12 @@ __WARN
 
 WriteMakefile
  ( NAME	 	=> 'XML::Compile::WSS'
- , VERSION	=> '1.08_02'
+ , VERSION	=> '1.09'
 
  , PREREQ_PM    =>
-     { 'XML::Compile'         => '1.36'
-     , 'XML::Compile::Cache'  => '0.995'
-     , 'XML::Compile::SOAP'   => '2.33'
+     { 'XML::Compile'         => '1.39'
+     , 'XML::Compile::Cache'  => '0.997'
+     , 'XML::Compile::SOAP'   => '2.38'
      , 'Log::Report'          => '0.92'
 
      , 'Encode'               => 0
