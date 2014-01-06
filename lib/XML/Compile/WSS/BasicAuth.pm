@@ -68,10 +68,16 @@ with "nonce" and/or "created" information before the encryption.
 =default created undef
 See M<XML::Compile::WSS::dateTime()> for choices of DATETIME.
 
+[1.10] The caller of the operation may also pass a C<wsu_Created>
+parameter, with the same formatting power.
+
 =option  nonce STRING|CODE|'RANDOM'
 =default nonce 'RANDOM'
 Only used then the password is passed as digest.  This will cause the
 C<wsse:Nonce> element.
+
+[1.10] You may add C<wsse_Nonce> to each operation call,
+to overrule the global setting.
 
 When you pass a CODE, it will get called for each message to produce a
 STRING. The constant text 'RANDOM' will have a random nonce generator
@@ -91,8 +97,11 @@ sub init($)
     $args->{wss_version} ||= '1.1';
     $self->SUPER::init($args);
 
-    $self->{XCWB_username} = $args->{username} or panic;
-    $self->{XCWB_password} = $args->{password} or panic;
+    $self->{XCWB_username} = $args->{username}
+        or error __"no username provided for basic authentication";
+
+    $self->{XCWB_password} = $args->{password}
+        or error __x"no password provided for basic authentication";
 
     my $n     = defined $args->{nonce} ? $args->{nonce} : 'RANDOM';
     my $nonce = ref $n eq 'CODE' ? $n
@@ -165,10 +174,11 @@ sub prepareWriting($)
           , wsse_Username => $self->username
           );
 
-        my $created  = $self->dateTime($self->created) || '';
+        my $now      = delete $data->{wsu_Created} || $self->created;
+        my $created  = $self->dateTime($now) || '';
         $login{$created_type} = $make_created->($doc, $created) if $created;
 
-        my $nonce    = $self->nonce || '';
+        my $nonce    = delete $data->{wsse_Nonce}  || $self->nonce || '';
         $login{$nonce_type} = $make_nonce->($doc, $nonce)
             if length $nonce;
 
