@@ -172,8 +172,8 @@ use constant
   , WSM10_STR_TRANS   => WSM_10.'#STRTransform'
   };
 
-=function wsm_encoded ENCODING, BYTES
-Encode the sequence of BYTES into the preferred.
+=function wsm_encoded $encoding, $bytes
+Encode the sequence of $bytes into the preferred.
 =cut
 
 sub wsm_encoded($$)
@@ -185,8 +185,8 @@ sub wsm_encoded($$)
     panic "unsupported encoding style $enc for encoding";
 }
 
-=function wsm_decoded ENCODING, BYTES
-Decode the sequence of BYTES from the given encoding.
+=function wsm_decoded $encoding, $bytes
+Decode the sequence of $bytes from the given encoding.
 =cut
 
 sub wsm_decoded($$)

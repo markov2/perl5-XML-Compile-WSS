@@ -56,7 +56,7 @@ security features can only be created after that.
 
 =section Constructors
 
-=c_method new OPTIONS
+=c_method new %options
 =option  schema M<XML::Compile::Cache> object
 =default schema C<undef>
 Do not use this in combination with a WSDL, but always in any other case.
@@ -142,7 +142,7 @@ sub soap11ClientWrapper($$$)
 =method features
 Returns a list of all security features.
 
-=method addFeature WSSOBJ
+=method addFeature $wssobj
 Add a new M<XML::Compile::WSS> object to the list of maintained features.
 =cut
 
@@ -177,9 +177,9 @@ sub _start($$)
     $self->addFeature($plugin->new($args));
 }
 
-=method basicAuth OPTIONS
+=method basicAuth %options
 Implements username/password authentication.
-See documentation in M<XML::Compile::WSS::BasicAuth>.  The OPTIONS are
+See documentation in M<XML::Compile::WSS::BasicAuth>.  The %options are
 passed to its new() method.
 =cut
 
@@ -188,9 +188,9 @@ sub basicAuth(%)
     $self->_start('XML::Compile::WSS::BasicAuth', \%args);
 }
 
-=method timestamp OPTIONS
+=method timestamp %options
 Adds a timestamp record to the Security header.
-See documentation in M<XML::Compile::WSS::Timestamp>.  The OPTIONS are
+See documentation in M<XML::Compile::WSS::Timestamp>.  The %options are
 passed to its new() method.
 =cut
 
@@ -199,9 +199,9 @@ sub timestamp(%)
     $self->_start('XML::Compile::WSS::Timestamp', \%args);
 }
 
-=method signature OPTIONS
+=method signature %options
 Put a crypto signature on one or more elements.
-See documentation in M<XML::Compile::WSS::Signature>.  The OPTIONS are
+See documentation in M<XML::Compile::WSS::Signature>.  The %options are
 passed to its new() method.
 
 =option  sign_types ARRAY
@@ -214,9 +214,10 @@ sub signature(%)
 {   my ($self, %args) = @_;
     my $schema = $args{schema} || $self->schema;
 
-    $args{sign_types} ||= ['SOAP-ENV:Body', 'env12:Body'];
+    my $has12  = defined $schema->prefix('env12');
+    $args{sign_types} ||= ['SOAP-ENV:Body', ($has12 ? 'env12:Body' : ())];
     $args{sign_put}   ||= 'wsse:SecurityHeaderType';
-    $args{sign_when}  ||= ['SOAP-ENV:Envelope', 'env12:Envelope'];
+    $args{sign_when}  ||= ['SOAP-ENV:Envelope', ($has12 ? 'env12:Envelope':())];
 
     my $sig    = $self->_start('XML::Compile::WSS::Signature', \%args);
     $sig;

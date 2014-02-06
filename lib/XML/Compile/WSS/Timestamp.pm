@@ -35,7 +35,7 @@ record.
 
 =section Constructors
 
-=c_method new OPTIONS
+=c_method new %options
 
 =default wss_version  '1.1'
 

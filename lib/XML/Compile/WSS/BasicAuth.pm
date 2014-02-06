@@ -47,7 +47,7 @@ a timestamp, a nonce and SHA1 hashing will keep the password a secret.
 
 =section Constructors
 
-=c_method new OPTIONS
+=c_method new %options
 
 =default wss_version  '1.1'
 
@@ -61,7 +61,7 @@ over the network.
 =default  pwformat UTP11_PTEXT
 With C<UTP11_PTEXT>, the plain-text version of the password is shown.
 If PTWTYPE IS C<UTP11_PDIGEST>, the plain-text password will be
-encrypted with SHA1.  The OPTIONS can be used to salt the digest
+encrypted with SHA1.  The %options can be used to salt the digest
 with "nonce" and/or "created" information before the encryption.
 
 =option  created DATETIME

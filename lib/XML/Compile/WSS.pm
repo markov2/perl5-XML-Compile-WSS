@@ -77,7 +77,7 @@ Furthermore
 
 =section Constructors
 
-=c_method new OPTIONS
+=c_method new %options
 
 =requires wss_version '1.1'|MODULE
 [1.0] Explicitly state which version WSS needs to be produced.
@@ -163,9 +163,9 @@ sub schema()     {shift->{XCW_schema}}
 #-----------
 =section Apply
 
-=method create DOC, SECURITY, DATA
-Adds some WSS element to SECURITY.  The DATA is the structure which
-is passed to some writer (for instance, the DATA which the user
+=method create $doc, $security, $data
+Adds some WSS element to $security.  The $data is the structure which
+is passed to some writer (for instance, the $data which the user
 passes to the SOAP call).  There is quite some flexibility in that
 structure, so should not be used, in general.
 =cut
@@ -177,8 +177,8 @@ sub create($$)
     $self;
 }
 
-=method check SECURITY
-Check whether received SECURITY information is correct.  Each active
+=method check $security
+Check whether received $security information is correct.  Each active
 WSS feature must check whether it finds information for it.
 =cut
 
@@ -192,7 +192,7 @@ sub check($)
 #-----------
 =section Helpers
 
-=method dateTime TIME|STRING|HASH
+=method dateTime $time|$string|HASH
 Returns a structure which can be used as timestamp, for instance in
 C<Created> and C<Expires> fields.  This helper function will help you
 use these timestamp fields correctly.
@@ -234,14 +234,14 @@ sub dateTime($)
 #-----------
 =section Internals
 
-=ci_method loadSchemas SCHEMA, VERSION
-SCHEMA must extend M<XML::Compile::Cache>.
+=ci_method loadSchemas $schema, $version
+$schema must extend M<XML::Compile::Cache>.
 
-The SCHEMA settings will may changed a little. For one, the
+The $schema settings will may changed a little. For one, the
 C<allow_undeclared> flag will be set. Also, C<any_element> will be set to
 'ATTEMPT' and C<mixed_elements> to 'STRUCTURAL'.
 
-You can not mix multiple versions of WSS inside one SCHEMA, because
+You can not mix multiple versions of WSS inside one $schema, because
 there will be too much confusion about prefixes.
 =cut
 
@@ -303,9 +303,9 @@ __PATCH
     $schema;
 }
 
-=method writerHookWsuId TYPE
+=method writerHookWsuId $type
 Creates a hook for an XML producer (writer), to understand wsu:Id on
-elements of TYPE.
+elements of $type.
 =cut
 
 sub writerHookWsuId($)
