@@ -1,6 +1,16 @@
 
 ==== version history of XML::Compile:WSS
 
+version 1.13: Tue Jul 21 14:13:35 CEST 2015
+
+	Fixes:
+	- try to eliminate confusion about plugins, when more than one
+	  ::Schema/::WSDL11 is active in one application.
+	  rt.cpan.org#99735 [Jason Adams]
+
+	Improvements:
+	- adding wsu_Id does not monopolize the replace hook anymore.
+
 version 1.12: Thu Feb  6 17:12:02 CET 2014
 
 	Fixes:

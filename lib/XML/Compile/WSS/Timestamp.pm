@@ -113,8 +113,9 @@ sub prepareWriting($)
     return if $self->{XCWT_stamp};
 
     my $ts_type = $schema->findName('wsu:Timestamp') ;
-    my $make_ts = $schema->writer($ts_type, include_namespaces => 1,
-      , hook => $self->writerHookWsuId('wsu:TimestampType'));
+    my @hooks   = $self->writerHookWsuId('wsu:TimestampType');
+    my $make_ts = $schema->writer($ts_type, include_namespaces => 1
+      , hooks => \@hooks);
     $schema->prefixFor(WSU_10);
 
     $self->{XCWT_stamp} = sub {

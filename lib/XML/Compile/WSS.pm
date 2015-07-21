@@ -10,8 +10,6 @@ use XML::Compile::Util      qw/SCHEMA2001/;
 use XML::Compile::Schema::BuiltInTypes qw/builtin_type_info/;
 
 use File::Basename          qw/dirname/;
-use Encode                  qw/encode/;
-use MIME::Base64            qw/encode_base64/;
 use POSIX                   qw/strftime/;
 use Scalar::Util            qw/weaken/;
 
@@ -40,7 +38,7 @@ XML::Compile::WSS - OASIS Web Services Security
    (schema => $schema, username => $user, ...);
  my $elem   = $auth->create($doc, $data);
 
- # ==> or as SOAP slave
+ # ==> or as SOAP client
  my $wss    = XML::Compile::SOAP::WSS->new;
  my $wsdl   = XML::Compile::WSDL11->new($wsdlfn);
  my $auth   = $wss->basicAuth(username => $user, ...);  # once!
@@ -298,7 +296,11 @@ sub loadSchemas($$)
 __PATCH
 
     $schema->allowUndeclared(1);
-    $schema->addCompileOptions(RW => mixed_elements => 'STRUCTURAL');
+    $schema->addCompileOptions('RW'
+      , mixed_elements     => 'STRUCTURAL'
+      , ignore_unused_tags => qr/^wsu_Id$/
+      );
+
     $schema->anyElement('ATTEMPT');
     $schema;
 }
@@ -311,20 +313,28 @@ elements of $type.
 sub writerHookWsuId($)
 {   my ($self, $type) = @_;
 
-    my $wrapper = sub
-      { my ($doc, $values, $path, $tag, $r) = @_ ;
+    my $after = sub
+      { my ($doc, $node, $path, $val) = @_;
 
-        # Remove $id first, to avoid $r complaining about unused
-        my $id   = delete $values->{wsu_Id};
-        my $node = $r->($doc, $values);
-        if($id)
-        {   $node->setNamespace(WSU_10, 'wsu', 0);
-            $node->setAttributeNS(WSU_10, 'Id' => $id);
+        my $id = $val->{wsu_Id};
+        defined $id or return $node;
+
+        # Some schema explicitly list wsu:Id attributes, we shouldn't add
+        # the attribute again.
+        if(my $has = $node->getAttributeNS(WSU_10, 'Id')
+                  || $node->getAttribute('wsu:Id'))
+        {   $has eq $id or warning __x"two wsu:Id attributes: {one} and {two}"
+               , one => $id, two => $has;
+
+            return $node;
         }
+
+        $node->setNamespace(WSU_10, 'wsu', 0);
+        $node->setAttributeNS(WSU_10, 'Id', $id);
         $node;
       };
 
-     +{ type => $type, replace => $wrapper };
+     +{ action => 'WRITER', type => $type, after => $after };
 }
 
 #---------------------------

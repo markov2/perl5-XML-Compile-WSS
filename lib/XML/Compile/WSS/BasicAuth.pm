@@ -141,7 +141,7 @@ sub prepareWriting($)
     my $make_nonce = sub {
         my ($doc, $nonce) = @_;
         my $enc = encode_base64 $nonce;
-        $enc    =~ s/\n$//;
+        chomp $enc;
         $w_nonce->($doc, {_ => $enc, EncodingType => WSM10_BASE64});
     };
 

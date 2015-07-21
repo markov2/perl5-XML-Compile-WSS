@@ -95,6 +95,10 @@ sub soap11OperationInit($$)
         or error __x"WSS not connected to the WSDL: WSS needs to be instantiated
 before the WSDL because it influences its interpretation";
 
+    # this is not a nice hack for apps where multiple ::WSDL or ::Schema
+    # objects are active https://rt.cpan.org/Ticket/Display.html?id=99735
+    $schema eq $op->schemas or return;
+
     trace "adding wss header logic";  # get full type from any schema
     my $sec = $schema->findName('wsse:Security');
     $op->addHeader(INPUT  => "wsse_Security" => $sec, mustUnderstand => 1);
@@ -104,6 +108,9 @@ before the WSDL because it influences its interpretation";
 
 sub soap11ClientWrapper($$$)
 {   my ($self, $op, $call, $args) = @_;
+
+    $self->schema eq $op->schemas or return;
+
     sub {
         my $data = @_==1 ? shift : {@_};
         my $sec  = $data->{wsse_Security};
