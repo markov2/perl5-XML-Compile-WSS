@@ -71,7 +71,7 @@ See M<XML::Compile::WSS::dateTime()> for choices of DATETIME.
 [1.10] The caller of the operation may also pass a C<wsu_Created>
 parameter, with the same formatting power.
 
-=option  nonce STRING|CODE|'RANDOM'
+=option  nonce STRING|CODE|'RANDOM'|undef
 =default nonce 'RANDOM'
 Only used then the password is passed as digest.  This will cause the
 C<wsse:Nonce> element.
@@ -103,12 +103,12 @@ sub init($)
     $self->{XCWB_password} = $args->{password}
         or error __x"no password provided for basic authentication";
 
-    my $n     = defined $args->{nonce} ? $args->{nonce} : 'RANDOM';
+    my $n     = $args->{nonce};
     my $nonce = ref $n eq 'CODE' ? $n
-              : $n eq 'RANDOM'   ? \&_random_nonce
-              :                    sub { $n };
+              : defined $n && $n eq 'RANDOM' ? \&_random_nonce
+              :    sub { $n };
 
-    $self->{XCWB_nonce}    = $args->{nonce};
+    $self->{XCWB_nonce}    = $nonce;
     $self->{XCWB_wsu_id}   = $args->{wsu_Id}   || $args->{wsu_id};
     $self->{XCWB_created}  = $args->{created};
     $self->{XCWB_pwformat} = $args->{pwformat} || UTP11_PTEXT;
@@ -126,7 +126,7 @@ sub init($)
 
 sub username() {shift->{XCWB_username}}
 sub password() {shift->{XCWB_password}}
-sub nonce()    {shift->{XCWB_nonce}   }
+sub nonce()    {shift->{XCWB_nonce}->() }
 sub wsuId()    {shift->{XCWB_wsu_id}  }
 sub created()  {shift->{XCWB_created} }
 sub pwformat() {shift->{XCWB_pwformat}}

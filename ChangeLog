@@ -1,6 +1,11 @@
 
 ==== version history of XML::Compile:WSS
 
+version 1.14: Mon  8 May 09:15:33 CEST 2017
+
+	Fixes:
+	- nonce processing.  rt.cpan.org#121497 [Errietta Kostala]
+
 version 1.13: Tue Jul 21 14:13:35 CEST 2015
 
 	Fixes:

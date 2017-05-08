@@ -32,11 +32,12 @@ my $nonce    = 'insecure' ;
 my $untype   = $wss->schema->findName('wsse:UsernameToken');
 my $unreader = $wss->schema->reader($untype) ;
 
-my @testCases = ( { nonce => $nonce, created => $now, _explain => 'integer, with Nonce' },
-                  { created => $now, _explain => 'integer, no Nonce' },
-                  { nonce => $nonce, created => '2012-08-17T12:02:26Z', _explain => 'string, with Nonce' },
-                  { created => '2012-08-17T12:02:26Z', _explain => 'string, no Nonce' },
-              ) ;
+my @testCases = (
+   { nonce => $nonce, created => $now, _explain => 'integer, with Nonce' },
+   { created => $now, _explain => 'integer, no Nonce' },
+   { nonce => $nonce, created => '2012-08-17T12:02:26Z', _explain => 'string, with Nonce' },
+   { created => '2012-08-17T12:02:26Z', _explain => 'string, no Nonce' },
+);
 
 foreach my $t (@testCases) {
     my $explain = delete $t->{_explain} || 'huh??' ;
