@@ -1,6 +1,11 @@
 
 ==== version history of XML::Compile:WSS
 
+version 1.15:
+
+	Improvements:
+	- move to Git and GitHub.
+
 version 1.14: Mon  8 May 09:15:33 CEST 2017
 
 	Fixes:

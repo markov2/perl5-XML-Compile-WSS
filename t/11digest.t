@@ -1,4 +1,8 @@
 #!/usr/bin/env perl
+# This code is part of distribution XML-Compile-WSS.  Meta-POD processed
+# with OODoc into POD and HTML manual-pages.  See README.md
+# Copyright Mark Overmeer.  Licensed under the same terms as Perl itself.
+
 # Basically just ensure that examples/usertoken/with_help_digest.pl will work.
 
 use warnings;

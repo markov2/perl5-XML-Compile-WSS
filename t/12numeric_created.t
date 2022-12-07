@@ -1,5 +1,8 @@
 #!/usr/bin/env perl
-#
+# This code is part of distribution XML-Compile-WSS.  Meta-POD processed
+# with OODoc into POD and HTML manual-pages.  See README.md
+# Copyright Mark Overmeer.  Licensed under the same terms as Perl itself.
+
 # Verify that, when "created" is passed as a number in wsseBasicAuth,
 # it gets encrypted the right way.  Check using both integer and
 # string timestamps, with Nonce and without.

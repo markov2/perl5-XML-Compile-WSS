@@ -1,3 +1,7 @@
+# This code is part of distribution XML-Compile-WSS.  Meta-POD processed
+# with OODoc into POD and HTML manual-pages.  See README.md
+# Copyright Mark Overmeer.  Licensed under the same terms as Perl itself.
+
 use ExtUtils::MakeMaker;
 use warnings;
 use strict;
@@ -20,8 +24,8 @@ __WARN
 }
 
 WriteMakefile
- ( NAME	 	=> 'XML::Compile::WSS'
- , VERSION	=> '1.14'
+ ( NAME	 		=> 'XML::Compile::WSS'
+ , VERSION 		=> '1.15'
 
  , PREREQ_PM    =>
      { 'XML::Compile'         => '1.50'
@@ -38,9 +42,22 @@ WriteMakefile
      , 'Scalar::Util'         => 0
      }
  , EXE_FILES    => []
- , AUTHOR       => 'Mark Overmeer'
+ , AUTHOR       => 'Mark Overmeer <markov@cpan.org>'
  , ABSTRACT     => 'OASIS Web Services Security'
- , LICENSE      => 'perl'
+ , LICENSE      => 'perl_5'
+
+ , META_MERGE =>
+      { 'meta-spec' => { version => 2 }
+      , resources  =>
+          { repository =>
+              { type => 'git'
+              , url  => 'https://github.com/markov2/perl5-XML-Compile-WSS.git'
+              , web  => 'https://github.com/markov2/perl5-XML-Compile-WSS'
+              }
+          , homepage => 'http://perl.overmeer.net/CPAN/'
+          , license  => [ 'http://dev.perl.org/licenses/' ]
+          }
+      }
  );
 
 ### used by oodist during production of distribution
@@ -49,12 +66,10 @@ sub MY::postamble { <<'__POSTAMBLE' }
 # for DIST
 RAWDIR          = ../public_html/xml-compile-wss/raw
 DISTDIR         = ../public_html/xml-compile-wss/source
-LICENSE         = artistic
 
 # for POD
 FIRST_YEAR      = 2011
-EMAIL           = perl@overmeer.net
-EXTENDS         = ../XMLCompile:../XMLCache:../XMLC14N:../WSSSIG
+EMAIL           = mark@overmeer.net
+EXTENDS         = ../XML-Compile:../XML-Compile-Cache:../XML-Compile-C14N:../XML-Compile-WSS-Signature
 WEBSITE         = http://perl.overmeer.net/xml-compile/
-PODTAIL		= ../XML-shared-podtail
 __POSTAMBLE
